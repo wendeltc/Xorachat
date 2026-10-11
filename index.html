@@ -651,15 +651,33 @@ async function toggleScreen(){
         screenAudioNode.connect(mixDest);
       }catch(e){ screenAudioNode = null; }
     }
-    if (!screenAudioTrack){
-      sysMsg('⚠️ Compartilhando SEM áudio de tela. Para abas, marque "Compartilhar áudio da aba". Para janela/tela no Linux, use o botão 🎧 (som de apps). Se foi intencional, ignore.');
+    if (!screenAudioTrack && !window.xoraDesktop){
+      sysMsg('⚠️ Compartilhando SEM áudio de tela. Para abas, marque "Compartilhar áudio da aba". Para janela/tela inteira no Linux o navegador NÃO captura áudio — use o botão 🎧 (som do sistema) ou compartilhe uma ABA. Se foi intencional, ignore.');
     }
 
     screenTrack.addEventListener('ended', () => stopScreen());  // botão "parar" do navegador
     replaceVideoForAll(screenTrack);
     pushState();
     updatePanelButtons();
+    if (window.xoraDesktop && !screenAudioTrack) autoSystemAudio();
   }catch(e){ /* usuário cancelou */ }
+}
+
+/* app desktop (Linux): liga o "SomDoSistema" sozinho junto com a tela */
+let autoExtra = false;
+async function autoSystemAudio(){
+  if (extraStream || !mixDest) return;          // já há áudio extra escolhido à mão
+  try{
+    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
+    const dev = devs.find(d => /SomDoSistema/i.test(d.label)) || devs.find(isMonitorDev);
+    if (!dev){
+      const st = await window.xoraDesktop.audioStatus();
+      sysMsg('⚠️ Tela compartilhada sem som do sistema. ' + (st && st.reason ? st.reason : 'Fonte "SomDoSistema" não encontrada.'));
+      return;
+    }
+    await useExtraDevice(dev.deviceId, true);
+    autoExtra = !!extraStream;
+  }catch(e){}
 }
 function replaceVideoForAll(track){
   for (const c of calls.values()){
@@ -669,6 +687,7 @@ function replaceVideoForAll(track){
   }
 }
 function stopScreen(push = true){
+  if (autoExtra){ autoExtra = false; stopExtra(); }
   if (screenAudioNode){ try{ screenAudioNode.disconnect(); }catch(e){} screenAudioNode = null; }
   if (screenTrack){ screenTrack.stop(); screenTrack = null; }
   if (screenStream){ screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
@@ -685,7 +704,7 @@ function stopScreen(push = true){
   if (e.target === $('#extraModal')) $('#extraModal').classList.remove('show');
 });
 
-const isMonitorDev = d => /monitor/i.test(d.label || '');
+const isMonitorDev = d => /monitor|SomDoSistema/i.test(d.label || '');
 
 async function openExtraPicker(){
   if (!inVoice) return;
@@ -721,6 +740,24 @@ async function openExtraPicker(){
     list.append(head('Microfones'));
     mics.forEach(d => list.append(extraRow(d, false)));
   }
+  if (!mons.length && /linux/i.test(navigator.userAgent)){
+    const h = document.createElement('p');
+    h.className = 'exhead';
+    h.textContent = 'Som do sistema não apareceu? (Chrome no Linux esconde os "Monitor de…")';
+    list.append(h);
+    const pre = document.createElement('pre');
+    pre.style.cssText = 'font-size:11px;white-space:pre-wrap;user-select:all;background:#1e1f22;padding:8px;border-radius:6px;color:#dbdee1;margin:0 0 8px';
+    pre.textContent =
+      "pactl load-module module-remap-source \\\n" +
+      "  master=$(pactl get-default-sink).monitor \\\n" +
+      "  source_name=xora_sistema \\\n" +
+      "  source_properties=device.description=SomDoSistema";
+    list.append(pre);
+    const t = document.createElement('p');
+    t.style.cssText = 'font-size:12px;color:#949ba4;margin:0 0 8px';
+    t.textContent = 'Rode isso no terminal uma vez, feche e reabra este seletor: vai aparecer "SomDoSistema" em Microfones. Escolha ele (se mudar de saída de áudio, rode de novo).';
+    list.append(t);
+  }
   if (!devs.length){
     const p = document.createElement('p');
     p.style.cssText = 'font-size:12px;color:#949ba4';
@@ -741,20 +778,22 @@ function extraRow(d, isMonitor){
 
 async function useExtraDevice(devId, isMonitor){
   stopExtra();
-  const base = { deviceId:{exact:devId}, echoCancellation:false, noiseSuppression:false, autoGainControl:false };
   try{
-    try{
-      // monitores: AEC do navegador remove a voz da chamada quando ela toca na mesma saída
-      extraStream = await navigator.mediaDevices.getUserMedia(isMonitor ? {...base, echoCancellation:true} : base);
-    }catch(e1){
-      extraStream = await navigator.mediaDevices.getUserMedia(base);  // fallback sem AEC
-    }
+    // Tenta capturar sem restrições rígidas para evitar o erro de MediaDevices
+    extraStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId: devId ? { exact: devId } : undefined,   // exact: com 'ideal' o Chrome cai no mic padrão em silêncio
+        echoCancellation: isMonitor,
+        noiseSuppression: false,
+        autoGainControl: false
+      }
+    });
     extraDevId = devId;
     extraNode = audioCtx.createMediaStreamSource(extraStream);
     extraNode.connect(mixDest);
     $('#extraModal').classList.remove('show');
     sysMsg(isMonitor
-      ? '🎧 Capturando a saída do sistema (com cancelamento de eco da chamada).'
+      ? '🎧 Capturando a saída do sistema com sucesso.'
       : '🎧 Áudio extra ativado — será misturado na sua transmissão.');
     updatePanelButtons();
   }catch(e){
