@@ -1,0 +1,27 @@
+{
+  "name": "xorachat-desktop",
+  "version": "1.0.0",
+  "description": "Xorachat — chat de voz e compartilhamento de tela com som (Linux)",
+  "main": "main.js",
+  "author": "Xorachat",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --linux AppImage --publish never"
+  },
+  "devDependencies": {
+    "electron": "latest",
+    "electron-builder": "latest"
+  },
+  "build": {
+    "appId": "app.xorachat.desktop",
+    "productName": "Xorachat",
+    "files": ["main.js", "preload.js", "audio.js", "app/**/*"],
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Network",
+      "icon": "build/icon.png",
+      "artifactName": "Xorachat-${version}-x86_64.AppImage"
+    }
+  }
+}

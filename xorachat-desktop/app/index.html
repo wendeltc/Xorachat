@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+<title>Xorachat — chamada P2P</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#313338;color:#dbdee1;overflow:hidden;overscroll-behavior:none}
+  button{font-family:inherit}
+
+  /* ===== tela de entrada ===== */
+  #joinScreen{position:fixed;inset:0;background:#313338;display:flex;align-items:center;justify-content:center;z-index:10}
+  .join-box{background:#2b2d31;padding:32px;border-radius:10px;width:min(360px,92vw);box-shadow:0 8px 24px rgba(0,0,0,.45)}
+  .join-box h1{color:#fff;font-size:23px;margin-bottom:6px}
+  .join-box .sub{color:#949ba4;font-size:13px;line-height:1.4}
+  .join-box label{font-size:11px;font-weight:700;color:#b5bac1;letter-spacing:.4px;display:block;margin:14px 0 6px;text-transform:uppercase}
+  .join-box input{width:100%;background:#1e1f22;border:0;border-radius:6px;padding:11px 12px;color:#dbdee1;font-size:15px;outline:none}
+  .join-box input:focus{box-shadow:0 0 0 1px #5865f2}
+  .join-box button{width:100%;margin-top:22px;background:#5865f2;border:0;border-radius:6px;padding:12px;color:#fff;font-weight:600;font-size:15px;cursor:pointer}
+  .join-box button:hover{background:#4752c4}
+
+  /* ===== layout ===== */
+  #app{display:none;height:100vh;height:100dvh}
+  .sidebar{width:280px;background:#2b2d31;display:flex;flex-direction:column;flex-shrink:0}
+  .guild-header{padding:12px 10px 12px 16px;font-weight:700;color:#fff;box-shadow:0 1px 0 #1e1f22;display:flex;align-items:center;gap:8px}
+  .guild-header span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #collapseBtn{background:transparent;border:0;color:#b5bac1;font-size:15px;cursor:pointer;width:30px;height:30px;border-radius:6px;flex-shrink:0;line-height:1}
+  #collapseBtn:hover{background:#35373c;color:#fff}
+  .sidebar.collapsed .channels{display:none}
+  .channels{flex:1;overflow-y:auto;padding:8px}
+  .cat{font-size:11px;font-weight:700;color:#949ba4;letter-spacing:.5px;margin:18px 8px 4px;text-transform:uppercase}
+  .voice-ch{padding:8px;border-radius:6px;cursor:pointer;color:#949ba4;font-weight:500;display:flex;gap:8px;align-items:center}
+  .voice-ch:hover{background:#35373c;color:#dbdee1}
+  .voice-ch .hint{margin-left:auto;font-size:11px;font-weight:700;color:#23a55a;opacity:0;transition:.15s}
+  .voice-ch:hover .hint,.voice-ch.connected .hint{opacity:1}
+  .mrow{display:flex;align-items:center;gap:10px;padding:4px 8px 4px 26px;border-radius:6px;font-size:14px;color:#949ba4}
+  .mname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .micon{font-size:12px}
+  .avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;color:#fff;font-size:14px;flex-shrink:0;transition:box-shadow .1s}
+  .mrow.speaking .avatar{box-shadow:0 0 0 2px #23a55a}
+  .empty{font-size:12px;color:#6d6f78;font-style:italic;padding:6px 8px 6px 26px}
+
+  .user-panel{background:#232428;padding:8px 10px;display:flex;align-items:center;gap:8px}
+  .uinfo{flex:1;min-width:0}
+  .un{font-size:14px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .us{font-size:11px;color:#949ba4}
+  .pbtn{width:32px;height:32px;border-radius:50%;border:0;background:#2b2d31;color:#dbdee1;font-size:13px;cursor:pointer;flex-shrink:0}
+  .pbtn:hover{background:#35373c}
+  .pbtn.off{background:#da373c;color:#fff}
+  .pbtn.on{background:#23a55a;color:#fff}
+  .pbtn.disabled{opacity:.35;pointer-events:none}
+
+  main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .chat-header{padding:12px 16px;box-shadow:0 1px 0 #26272b;font-weight:600;color:#fff}
+  .chat-header span{color:#949ba4;font-weight:400;font-size:13px;margin-left:10px}
+
+  /* ===== palco de tela compartilhada ===== */
+  #screenView{padding:14px 16px 0;display:none}
+  #screenView .sl{font-size:13px;color:#949ba4;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .sright{margin-left:auto;display:flex;align-items:center;gap:8px}
+  #screenTabs{display:flex;gap:6px;flex-wrap:wrap}
+  #screenTabs:empty{display:none}
+  .stab{background:#1e1f22;border:0;color:#b5bac1;font-size:12px;font-weight:600;padding:5px 10px;border-radius:4px;cursor:pointer;white-space:nowrap}
+  .stab:hover{background:#35373c;color:#fff}
+  .stab.active{background:#5865f2;color:#fff}
+  #screenToggle{background:#2b2d31;border:0;color:#b5bac1;font-size:12px;font-weight:600;padding:5px 10px;border-radius:4px;cursor:pointer}
+  #screenToggle:hover{background:#35373c;color:#fff}
+  .video-wrap{position:relative}
+  #screenVideo{width:100%;max-height:45vh;max-height:45dvh;background:#000;border-radius:8px;display:block}
+  #tapToPlay{position:absolute;inset:0;background:rgba(0,0,0,.65);color:#fff;border:0;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;display:none;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+  #tapToPlay.show{display:flex}
+  #tapToPlay small{font-weight:400;font-size:11px;color:#b5bac1}
+  #screenView.min #screenVideo{display:none}
+  #screenView.min #tapToPlay{display:none}
+  #screenView.min .sl{margin-bottom:0}
+
+  #messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+  .msg{display:flex;gap:12px}
+  .msg .mh{font-size:14px}
+  .msg .mh b{color:#fff}
+  .msg time{font-size:11px;color:#6d6f78;margin-left:6px}
+  .msg .mb{font-size:14.5px;line-height:1.4;word-break:break-word}
+  .msg.sys{font-size:13px;color:#949ba4;font-style:italic;display:block;padding-left:4px}
+
+  #chatForm{display:flex;gap:8px;padding:0 16px calc(14px + env(safe-area-inset-bottom))}
+  #chatInput{flex:1;background:#383a40;border:0;border-radius:8px;padding:12px 14px;color:#dbdee1;font-size:14px;outline:none}
+  #chatInput:focus{background:#404249}
+  #chatForm button{background:#5865f2;color:#fff;border:0;border-radius:8px;padding:0 18px;font-weight:600;cursor:pointer}
+
+  /* ===== seletor de áudio extra ===== */
+  #extraModal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:20}
+  #extraModal.show{display:flex}
+  .exbox{background:#2b2d31;border-radius:10px;padding:20px;width:min(400px,92vw);max-height:80vh;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+  .exbox h3{color:#fff;font-size:16px;margin-bottom:6px}
+  .exbox p{font-size:12px;color:#949ba4;line-height:1.45;margin-bottom:12px}
+  .exhead{font-size:11px;font-weight:700;color:#949ba4;letter-spacing:.4px;text-transform:uppercase;margin:10px 0 4px}
+  .exitem{display:block;width:100%;text-align:left;background:#1e1f22;border:0;color:#dbdee1;font-size:13.5px;padding:10px 12px;border-radius:6px;cursor:pointer;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .exitem:hover{background:#35373c;color:#fff}
+  .exitem.stop{background:#da373c;color:#fff;font-weight:600;text-align:center}
+  .excancel{background:transparent;border:0;color:#949ba4;font-size:13px;cursor:pointer;padding:8px;width:100%;border-radius:6px;margin-top:4px}
+  .excancel:hover{color:#fff;background:#35373c}
+
+  /* ===== mobile ===== */
+  @media (max-width: 720px){
+    #app{flex-direction:column}
+    .sidebar{width:100%;max-height:46vh;max-height:46dvh}
+    #screenVideo{max-height:34vh;max-height:34dvh}
+  }
+</style>
+</head>
+<body>
+
+<!-- tela de entrada -->
+<div id="joinScreen">
+  <form class="join-box" id="joinForm">
+    <h1>Xorachat</h1>
+    <p class="sub">Voz e compartilhamento de tela (com áudio) direto entre navegadores, P2P sem servidor. Quem usar o mesmo nome de sala entra junto.</p>
+    <label>Nome da sala</label>
+    <input id="roomInput" placeholder="ex.: pelada-terca" maxlength="24" required>
+    <label>Seu nome</label>
+    <input id="nameInput" placeholder="ex.: João" maxlength="20" required>
+    <button type="submit">Entrar</button>
+  </form>
+</div>
+
+<!-- app -->
+<div id="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="guild-header">
+      <span id="roomTitle"></span>
+      <button id="collapseBtn" type="button" title="Recolher/mostrar a lista de participantes">▾</button>
+    </div>
+    <div class="channels">
+      <div class="cat">Canal de voz</div>
+      <div class="voice-ch" id="voiceChannel">🔊 <span>geral</span><span class="hint" id="vcHint">Entrar</span></div>
+      <div id="voiceList"></div>
+      <div class="cat">Online — <span id="onlineCount">0</span></div>
+      <div id="onlineList"></div>
+    </div>
+    <div class="user-panel">
+      <div class="avatar" id="myAvatar"></div>
+      <div class="uinfo"><div class="un" id="myNameEl"></div><div class="us" id="myStatus">Conectando…</div></div>
+      <button class="pbtn disabled" id="btnMute" title="Silenciar microfone">🎙️</button>
+      <button class="pbtn disabled" id="btnExtra" title="Som de jogo/app (saída do sistema)">🎧</button>
+      <button class="pbtn disabled" id="btnScreen" title="Compartilhar tela (com áudio)">🖥️</button>
+      <button class="pbtn disabled" id="btnLeave" title="Desconectar da chamada">🚪</button>
+    </div>
+  </aside>
+
+  <main>
+    <div class="chat-header">💬 chat<span id="chatRoom"></span></div>
+    <div id="screenView">
+      <div class="sl">
+        <span id="screenLabel"></span>
+        <div class="sright">
+          <div id="screenTabs"></div>
+          <button id="screenToggle">⬇ Minimizar</button>
+        </div>
+      </div>
+      <div class="video-wrap">
+        <video id="screenVideo" autoplay playsinline muted></video>
+        <button id="tapToPlay" type="button">▶ Toque para assistir<small>o navegador bloqueou a reprodução automática</small></button>
+      </div>
+    </div>
+    <div id="messages"></div>
+    <form id="chatForm">
+      <input id="chatInput" placeholder="Conversar no chat…" autocomplete="off" maxlength="500">
+      <button type="submit">Enviar</button>
+    </form>
+  </main>
+</div>
+
+<!-- seletor de fonte de áudio extra -->
+<div id="extraModal">
+  <div class="exbox">
+    <h3>🎧 Som de apps na transmissão</h3>
+    <p>Para transmitir o som de um jogo ou app: deixe o som dele saindo pela saída padrão e escolha abaixo a <b>saída do sistema</b> ("Monitor de …") correspondente. Se a chamada estiver tocando na mesma saída, o app remove a voz dos amigos automaticamente (cancelamento de eco). Para risco zero, use fone na chamada e caixa de som no jogo.</p>
+    <div id="extraList"></div>
+    <button class="excancel" id="extraCancel">Fechar</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Xorachat — voz + tela (com áudio) em P2P puro (WebRTC/PeerJS)
+   - O servidor do PeerJS só faz a "sinalização"; mídia vai direto
+     entre os navegadores.
+   - ÁUDIO: o que viaja é uma faixa MIXADA (WebAudio): microfone +
+     áudio da tela + áudio extra (botão 🎧). Sem renegociação.
+   - 🎧: no Linux (PipeWire), as saídas do sistema aparecem como
+     "Monitor de ..." e são capturadas COM cancelamento de eco do
+     navegador — a voz da chamada não volta pros outros. Zero
+     terminal, zero configuração de sistema.
+   - Mute do mic não silencia tela/áudio extra (como no Discord).
+   ============================================================ */
+
+const $ = s => document.querySelector(s);
+const HOST_PREFIX = 'xorachat-';   // prefixo p/ não colidir com outros apps no servidor público
+const SPEAK_TH = 12;               // limiar do indicador "falando" (ajuste se preciso)
+
+let peer = null, isHost = false, myId = '';
+let roomId = '', myName = '';
+let hostConn = null, pendingMsgs = [];
+const dataConns = new Map();       // anfitrião: conexões de dados com cada cliente
+const calls = new Map();           // chamadas de mídia ativas
+const members = new Map();         // anfitrião: lista de membros
+const remoteStreams = new Map();   // id -> MediaStream recebido
+let rosterList = [];
+
+let micStream = null, localCallStream = null, _dummyTrack = null;
+let screenTrack = null, screenStream = null;
+let inVoice = false, muted = false, speakingNow = false;
+let audioCtx = null, mixDest = null;          // mixer WebAudio (mic + tela + extra)
+let screenAudioNode = null, screenAudioTrack = null;
+let detectorTimer = null, retries = 0;
+let noMic = false;                            // modo "só escutar" (microfone negado)
+
+let extraStream = null, extraNode = null, extraDevId = null;   // áudio extra (🎧)
+
+let screenMinimized = false;        // preview minimizado — não afeta a transmissão
+let activeScreenId = null;          // qual compartilhamento estou assistindo
+const videoOnlyStreams = new Map(); // cache: stream só de vídeo, por pessoa
+const localMutes = new Set();       // pessoas silenciadas só para mim
+const pendingAudios = new Set();    // <audio> que esperam um gesto p/ tocar (mobile)
+
+/* ---------- utilidades ---------- */
+function slug(t){ return (t.toLowerCase().trim().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,24) || 'sala'); }
+function hash(s){ let h=0; for (const c of s) h = (h*31 + c.charCodeAt(0))|0; return Math.abs(h); }
+function colorFor(n){ return `hsl(${hash(n)%360},45%,42%)`; }
+function mkAvatar(name){
+  const d = document.createElement('div'); d.className = 'avatar';
+  d.style.background = colorFor(name); d.textContent = name[0].toUpperCase();
+  return d;
+}
+// faixa de vídeo "fingida" (preto) p/ negociar vídeo desde o início
+// — assim dá pra trocar por tela depois com replaceTrack, sem renegociar
+function dummyTrack(){
+  if (_dummyTrack && _dummyTrack.readyState === 'live') return _dummyTrack;
+  const cv = document.createElement('canvas'); cv.width = 16; cv.height = 16;
+  const cx = cv.getContext('2d'); cx.fillStyle = '#000'; cx.fillRect(0,0,16,16);
+  _dummyTrack = cv.captureStream(1).getVideoTracks()[0];
+  return _dummyTrack;
+}
+
+/* ---------- recolher lista de participantes ---------- */
+const COLLAPSE_KEY = 'xorachat-sidebar';
+function setCollapsed(v){
+  $('#sidebar').classList.toggle('collapsed', v);
+  $('#collapseBtn').textContent = v ? '▸' : '▾';
+  $('#collapseBtn').title = v ? 'Mostrar a lista de participantes' : 'Recolher a lista de participantes';
+  try{ localStorage.setItem(COLLAPSE_KEY, v ? '1' : '0'); }catch(e){}
+}
+ $('#collapseBtn').addEventListener('click', () =>
+  setCollapsed(!$('#sidebar').classList.contains('collapsed')));
+try{
+  const saved = localStorage.getItem(COLLAPSE_KEY);
+  if (saved !== null) setCollapsed(saved === '1');
+}catch(e){}
+
+/* ---------- entrada ---------- */
+ $('#joinForm').addEventListener('submit', e => {
+  e.preventDefault();
+  roomId = slug($('#roomInput').value || 'sala');
+  myName = $('#nameInput').value.trim() || 'Anônimo';
+  $('#joinScreen').style.display = 'none';
+  $('#app').style.display = 'flex';
+  $('#roomTitle').textContent = '🏠 ' + roomId;
+  $('#chatRoom').textContent = 'sala: ' + roomId;
+  $('#myNameEl').textContent = myName;
+  const av = $('#myAvatar'); av.style.background = colorFor(myName); av.textContent = myName[0].toUpperCase();
+  connect();
+});
+
+/* ---------- conexão ---------- */
+function connect(){
+  const hostId = HOST_PREFIX + roomId;
+  peer = new Peer(hostId, {
+    debug: 1,
+    config: { iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:global.stun.twilio.com:3478' }
+      // Se alguém não conectar (NAT muito restrito), adicione um TURN aqui:
+      // { urls:'turn:SEU_SERVIDOR', username:'x', credential:'y' }
+    ]}
+  });
+  peer.on('open', id => {                     // consegui o ID da sala → sou o anfitrião
+    myId = id; isHost = true; retries = 0;
+    $('#myStatus').textContent = 'Anfitrião da sala';
+    members.set(myId, {id:myId, name:myName, inVoice, muted, screen:!!screenTrack, speaking:false});
+    sysMsg(`Você criou a sala "${roomId}". Mande o nome da sala pros seus amigos!`);
+    broadcastRoster();
+  });
+  peer.on('connection', conn => {
+    conn.on('open',  () => dataConns.set(conn.peer, conn));
+    conn.on('data',  d  => hostOnData(conn.peer, d));
+    conn.on('close', () => hostRemovePeer(conn.peer));
+    conn.on('error', () => hostRemovePeer(conn.peer));
+  });
+  peer.on('call', answerCall);
+  peer.on('error', err => {
+    if (err.type === 'unavailable-id') joinAsClient();   // alguém já é anfitrião → entra como cliente
+    else if (err.type === 'peer-unavailable') {}          // par sumiu; o roster resolve
+    else console.error('peer error:', err.type);
+  });
+  peer.on('disconnected', () => { try{ peer.reconnect(); }catch(e){} });
+}
+
+function joinAsClient(){
+  isHost = false;
+  peer.destroy();
+  peer = new Peer({ debug:1, config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}]} });
+  const hostId = HOST_PREFIX + roomId;
+  peer.on('open', id => {
+    myId = id;
+    $('#myStatus').textContent = 'Online';
+    hostConn = peer.connect(hostId, { reliable:true });
+    hostConn.on('open', () => {
+      hostConn.send({t:'hello', name:myName, inVoice, muted, screen:!!screenTrack});
+      pendingMsgs.forEach(m => hostConn.send(m)); pendingMsgs = [];
+      sysMsg(`Você entrou na sala "${roomId}".`);
+      updatePanelButtons();
+    });
+    hostConn.on('data', clientOnData);
+    hostConn.on('close', hostLost);
+  });
+  peer.on('call', answerCall);
+  peer.on('error', err => {
+    if (err.type === 'peer-unavailable'){      // anfitrião sumiu → tento assumir a sala
+      if (++retries > 8){ alert('Não foi possível conectar à sala. Recarregue a página.'); location.reload(); return; }
+      setTimeout(() => { try{ peer.destroy(); }catch(e){} connect(); }, 600 + Math.random()*800);
+    } else console.error('peer error:', err.type);
+  });
+  peer.on('disconnected', () => { try{ peer.reconnect(); }catch(e){} });
+}
+
+function hostLost(){
+  hostConn = null;
+  if (isHost) return;
+  hangupCalls();                               // mesh quebrou; remonta após reconectar
+  if (++retries > 5){ alert('O anfitrião saiu e não consegui reconectar. Recarregue a página.'); location.reload(); return; }
+  $('#myStatus').textContent = 'Reconectando…';
+  setTimeout(() => { try{ peer.destroy(); }catch(e){} connect(); }, 800 + Math.random()*900);
+}
+
+function sendHost(msg){
+  if (hostConn && hostConn.open) hostConn.send(msg);
+  else pendingMsgs.push(msg);
+}
+
+/* ---------- lista de presença ---------- */
+function hostOnData(from, d){
+  if (d.t === 'hello'){
+    if (!members.has(from)) members.set(from, {id:from, name:d.name||'Anônimo', inVoice:!!d.inVoice, muted:!!d.muted, screen:!!d.screen, speaking:false});
+    broadcastRoster();
+  }
+  else if (d.t === 'state'){
+    const m = members.get(from); if (!m) return;
+    const was = m.inVoice;
+    m.inVoice = d.inVoice; m.muted = d.muted; m.screen = d.screen;
+    if (m.inVoice !== was) sysEverywhere(`${m.name} ${m.inVoice ? 'entrou na' : 'saiu da'} chamada.`);
+    else broadcastRoster();
+  }
+  else if (d.t === 'speak'){
+    const m = members.get(from); if (!m) return;
+    m.speaking = d.on && !m.muted;
+    broadcastRoster();
+  }
+  else if (d.t === 'chat'){
+    addChat(d.name, d.text);
+    for (const [id, c] of dataConns) if (id !== from && c.open) c.send(d);
+  }
+  else if (d.t === 'sys'){
+    sysMsg(d.text);
+    for (const [id, c] of dataConns) if (id !== from && c.open) c.send(d);
+  }
+}
+
+function hostRemovePeer(id){
+  if (!dataConns.has(id)) return;
+  dataConns.delete(id);
+  const m = members.get(id);
+  if (m){
+    if (m.inVoice) sysEverywhere(`${m.name} saiu da chamada.`);
+    members.delete(id);
+  }
+  const c = calls.get(id); if (c){ c.close(); calls.delete(id); }
+  broadcastRoster();
+}
+
+function broadcastRoster(){
+  const list = [...members.values()].map(m => ({...m}));
+  for (const c of dataConns.values()) if (c.open) c.send({t:'roster', members:list});
+  applyRoster(list);
+}
+function applyRoster(list){
+  rosterList = list;
+  renderRoster(list);
+  updateCallsFromRoster();
+  updateScreenView();
+}
+function clientOnData(d){
+  if (d.t === 'roster'){ retries = 0; $('#myStatus').textContent = 'Online'; applyRoster(d.members); }
+  else if (d.t === 'chat') addChat(d.name, d.text);
+  else if (d.t === 'sys') sysMsg(d.text);
+}
+
+function pushState(){
+  if (isHost){
+    const m = members.get(myId);
+    if (m){
+      const was = m.inVoice;
+      m.inVoice = inVoice; m.muted = muted; m.screen = !!screenTrack;
+      if (m.inVoice !== was) sysEverywhere(`${myName} ${inVoice ? 'entrou na' : 'saiu da'} chamada.`);
+      else broadcastRoster();
+    }
+  } else sendHost({t:'state', inVoice, muted, screen:!!screenTrack});
+}
+function pushSpeak(on){
+  if (isHost){
+    const m = members.get(myId);
+    if (m){ m.speaking = on && !muted; broadcastRoster(); }
+  } else sendHost({t:'speak', on});
+}
+function sysEverywhere(text){
+  sysMsg(text);
+  for (const c of dataConns.values()) if (c.open) c.send({t:'sys', text});
+  broadcastRoster();
+}
+
+function renderRoster(list){
+  const vl = $('#voiceList'); vl.innerHTML = '';
+  const inV = list.filter(m => m.inVoice);
+  if (!inV.length){
+    const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Ninguém na chamada'; vl.append(e);
+  } else for (const m of inV) vl.append(memberRow(m, false));
+  const ol = $('#onlineList'); ol.innerHTML = '';
+  for (const m of list) ol.append(memberRow(m, m.id === myId));
+  $('#onlineCount').textContent = list.length;
+}
+function memberRow(m, isMe){
+  const row = document.createElement('div');
+  row.className = 'mrow' + (m.speaking && !m.muted ? ' speaking' : '');
+  row.append(mkAvatar(m.name));
+  const nm = document.createElement('span'); nm.className = 'mname';
+  nm.textContent = m.name + (isMe ? ' (você)' : '');
+  row.append(nm);
+  if (m.inVoice && (m.muted || (!isMe && localMutes.has(m.id)))){
+    const i = document.createElement('span'); i.className = 'micon'; i.textContent = '🔇'; row.append(i);
+  }
+  if (m.screen){ const i = document.createElement('span'); i.className = 'micon'; i.textContent = '🖥️'; row.append(i); }
+  if (!isMe && m.inVoice){
+    row.style.cursor = 'pointer';
+    row.title = localMutes.has(m.id)
+      ? 'Silenciado(a) só para você — clique para reativar'
+      : 'Clique para silenciar esta pessoa só para você';
+    row.addEventListener('click', () => {
+      if (localMutes.has(m.id)) localMutes.delete(m.id); else localMutes.add(m.id);
+      const a = document.getElementById('aud-' + m.id);
+      if (a) a.volume = localMutes.has(m.id) ? 0 : 1;
+      renderRoster(rosterList);
+    });
+  }
+  return row;
+}
+
+/* ---------- chamada de voz (mesh P2P) ---------- */
+ $('#voiceChannel').addEventListener('click', joinVoice);
+
+async function joinVoice(){
+  if (inVoice) return;
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    alert('Este navegador não expõe o microfone.\n\nCausas comuns:\n' +
+      '• A página não está aberta por HTTPS (exige HTTPS ou localhost)\n' +
+      '• O link foi aberto pelo navegador interno de outro app (WhatsApp, Instagram…) — abra direto no Chrome\n' +
+      '• Navegador muito antigo, sem suporte a WebRTC');
+    return;
+  }
+
+  try{
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        echoCancellationType: 'system', // usa o cancelador de eco do SO quando disponível
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
+    noMic = false; muted = false;
+  }catch(e){
+    if (e.name === 'NotAllowedError' || e.name === 'SecurityError'){
+      const listen = confirm(
+        'Permissão de microfone negada.\n\n' +
+        'Para liberar no Chrome do Android:\n' +
+        '1. Toque no 🔒 (ou ⓘ) ao lado do endereço do site\n' +
+        '2. Permissões → Microfone → Permitir\n' +
+        '3. Recarregue a página\n\n' +
+        'Deseja entrar mesmo assim, só para OUVIR e ver as telas?'
+      );
+      if (!listen) return;
+      noMic = true; muted = true; micStream = null;   // entra só para ouvir
+    }
+    else if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError'){
+      alert('Nenhum microfone foi encontrado neste dispositivo.'); return;
+    }
+    else if (e.name === 'NotReadableError' || e.name === 'TrackStartError'){
+      alert('O microfone está ocupado por outro aplicativo. Feche-o e tente de novo.'); return;
+    }
+    else { alert('Sem acesso ao microfone: ' + (e.message || e.name)); return; }
+  }
+
+  inVoice = true; speakingNow = false;
+
+  /* mixer WebAudio: microfone (+ tela + áudio extra) → uma faixa só.
+     Se falhar (navegador exótico), cai no modo antigo: envia o mic cru. */
+  try{
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+    mixDest = audioCtx.createMediaStreamDestination();
+    if (noMic){
+      // fonte "muda" pra manter o mixer vivo (permite enviar tela/extra mesmo sem mic)
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain(); g.gain.value = 0;
+      osc.connect(g); g.connect(mixDest); osc.start();
+    } else {
+      const src = audioCtx.createMediaStreamSource(micStream);
+      src.connect(mixDest);
+    }
+  }catch(e){
+    try{ audioCtx && audioCtx.close(); }catch(_){}
+    audioCtx = null; mixDest = null;
+  }
+
+  const sendTrack = (mixDest && mixDest.stream.getAudioTracks()[0]) ||
+                    (micStream ? micStream.getAudioTracks()[0] : null);
+  const tracks = [];
+  if (sendTrack) tracks.push(sendTrack);
+  tracks.push(dummyTrack());
+  localCallStream = new MediaStream(tracks);
+
+  $('#vcHint').textContent = 'Conectado ✓';
+  $('#voiceChannel').classList.add('connected');
+  if (!noMic) startDetector();
+  updatePanelButtons();
+  pushState();
+  updateCallsFromRoster();
+}
+
+function leaveVoice(){
+  if (!inVoice) return;
+  inVoice = false; speakingNow = false;
+  hangupCalls();
+  stopScreen(false);
+  stopExtra();
+  if (micStream){ micStream.getTracks().forEach(t => t.stop()); micStream = null; localCallStream = null; }
+  if (detectorTimer){ clearInterval(detectorTimer); detectorTimer = null; }
+  if (audioCtx){ audioCtx.close().catch(()=>{}); audioCtx = null; }
+  mixDest = null; screenAudioNode = null; screenAudioTrack = null;
+  noMic = false;
+  $('#vcHint').textContent = 'Entrar';
+  $('#voiceChannel').classList.remove('connected');
+  updatePanelButtons();
+  pushState();
+}
+
+function hangupCalls(){
+  for (const c of calls.values()) c.close();
+  calls.clear();
+  document.querySelectorAll('audio.remote').forEach(a => a.remove());
+  remoteStreams.clear();
+  videoOnlyStreams.clear();
+  activeScreenId = null;
+}
+
+// regra de determinismo: dos dois lados, quem tem o ID "maior" inicia a chamada
+function updateCallsFromRoster(){
+  if (!inVoice || !peer) return;
+  for (const m of rosterList){
+    if (m.id !== myId && m.inVoice && !calls.has(m.id) && myId > m.id){
+      try{ trackCall(peer.call(m.id, localCallStream)); }catch(e){}
+    }
+  }
+  for (const [id, c] of [...calls]){
+    const m = rosterList.find(x => x.id === id);
+    if (!m || !m.inVoice) c.close();
+  }
+}
+
+function trackCall(c){
+  calls.set(c.peer, c);
+  c.on('stream', rs => {
+    remoteStreams.set(c.peer, rs);
+    let a = document.getElementById('aud-' + c.peer);
+    if (!a){
+      a = document.createElement('audio');
+      a.id = 'aud-' + c.peer; a.className = 'remote'; a.autoplay = true;
+      document.body.appendChild(a);
+    }
+    a.srcObject = rs;
+    a.volume = localMutes.has(c.peer) ? 0 : 1;
+    a.play().then(() => pendingAudios.delete(a))
+            .catch(() => pendingAudios.add(a));  // mobile: espera um gesto do usuário
+    updateScreenView();
+  });
+  c.on('close', () => {
+    calls.delete(c.peer);
+    document.getElementById('aud-' + c.peer)?.remove();
+    remoteStreams.delete(c.peer);
+    videoOnlyStreams.delete(c.peer);
+    if (activeScreenId === c.peer) activeScreenId = null;
+    updateScreenView();
+  });
+  c.on('error', e => console.error('call error', e.type));
+}
+
+function answerCall(call){
+  if (!inVoice || !localCallStream){ call.close(); return; }
+  call.answer(localCallStream);
+  trackCall(call);
+}
+
+/* ---------- compartilhamento de tela (com áudio) ---------- */
+ $('#btnScreen').addEventListener('click', toggleScreen);
+
+async function toggleScreen(){
+  if (!inVoice) return;
+  if (screenTrack){ stopScreen(); return; }
+  if (!navigator.mediaDevices.getDisplayMedia){
+    alert('Este navegador não suporta compartilhamento de tela.\n' +
+      '(O Chrome do Android ainda não oferece essa função — mas você pode conversar e assistir às telas dos outros normalmente.)');
+    return;
+  }
+  try{
+    screenStream = await navigator.mediaDevices.getDisplayMedia({
+      video:{ frameRate:30 },
+      // sem DSP de voz no áudio da tela: AEC/NS tratariam música/jogo como "ruído"
+      audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false },
+      systemAudio:'include'   // dica pro Chrome oferecer "áudio do sistema" (Windows)
+    });
+    screenTrack = screenStream.getVideoTracks()[0];
+    try{ screenTrack.contentHint = 'detail'; }catch(e){}  // otimiza encoder p/ conteúdo de tela
+
+    // conecta o áudio da tela no mixer — a faixa enviada não muda, zero renegociação
+    screenAudioTrack = screenStream.getAudioTracks()[0] || null;
+    if (screenAudioTrack && mixDest){
+      try{
+        screenAudioNode = audioCtx.createMediaStreamSource(new MediaStream([screenAudioTrack]));
+        screenAudioNode.connect(mixDest);
+      }catch(e){ screenAudioNode = null; }
+    }
+    if (!screenAudioTrack && !window.xoraDesktop){
+      sysMsg('⚠️ Compartilhando SEM áudio de tela. Para abas, marque "Compartilhar áudio da aba". Para janela/tela inteira no Linux o navegador NÃO captura áudio — use o botão 🎧 (som do sistema) ou compartilhe uma ABA. Se foi intencional, ignore.');
+    }
+
+    screenTrack.addEventListener('ended', () => stopScreen());  // botão "parar" do navegador
+    replaceVideoForAll(screenTrack);
+    pushState();
+    updatePanelButtons();
+    if (window.xoraDesktop && !screenAudioTrack) autoSystemAudio();
+  }catch(e){ /* usuário cancelou */ }
+}
+
+/* app desktop (Linux): liga o "SomDoSistema" sozinho junto com a tela */
+let autoExtra = false;
+async function autoSystemAudio(){
+  if (extraStream || !mixDest) return;          // já há áudio extra escolhido à mão
+  try{
+    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
+    const dev = devs.find(d => /SomDoSistema/i.test(d.label)) || devs.find(isMonitorDev);
+    if (!dev){
+      const st = await window.xoraDesktop.audioStatus();
+      sysMsg('⚠️ Tela compartilhada sem som do sistema. ' + (st && st.reason ? st.reason : 'Fonte "SomDoSistema" não encontrada.'));
+      return;
+    }
+    await useExtraDevice(dev.deviceId, true);
+    autoExtra = !!extraStream;
+  }catch(e){}
+}
+function replaceVideoForAll(track){
+  for (const c of calls.values()){
+    const pc = c.peerConnection; if (!pc) continue;
+    const s = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+    if (s) s.replaceTrack(track).catch(()=>{});
+  }
+}
+function stopScreen(push = true){
+  if (autoExtra){ autoExtra = false; stopExtra(); }
+  if (screenAudioNode){ try{ screenAudioNode.disconnect(); }catch(e){} screenAudioNode = null; }
+  if (screenTrack){ screenTrack.stop(); screenTrack = null; }
+  if (screenStream){ screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
+  screenAudioTrack = null;
+  replaceVideoForAll(dummyTrack());
+  if (push) pushState();
+  updatePanelButtons();
+}
+
+/* ---------- áudio extra (🎧) — som de apps/saída do sistema, 100% navegador ---------- */
+ $('#btnExtra').addEventListener('click', openExtraPicker);
+ $('#extraCancel').addEventListener('click', () => $('#extraModal').classList.remove('show'));
+ $('#extraModal').addEventListener('click', e => {
+  if (e.target === $('#extraModal')) $('#extraModal').classList.remove('show');
+});
+
+const isMonitorDev = d => /monitor|SomDoSistema/i.test(d.label || '');
+
+async function openExtraPicker(){
+  if (!inVoice) return;
+  if (!mixDest){ alert('O mixer de áudio não está disponível neste navegador.'); return; }
+  let devs = [];
+  try{
+    devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
+  }catch(e){}
+  const mons = devs.filter(isMonitorDev);
+  const mics = devs.filter(d => !isMonitorDev(d));
+
+  const list = $('#extraList'); list.innerHTML = '';
+  if (extraStream){
+    const stop = document.createElement('button');
+    stop.className = 'exitem stop';
+    stop.textContent = '⏹ Desligar áudio extra';
+    stop.addEventListener('click', () => { stopExtra(); $('#extraModal').classList.remove('show'); });
+    list.append(stop);
+  }
+
+  const head = t => {
+    const p = document.createElement('p');
+    p.className = 'exhead';
+    p.textContent = t;
+    return p;
+  };
+
+  if (mons.length){
+    list.append(head('Saídas do sistema (som de jogos/apps)'));
+    mons.forEach(d => list.append(extraRow(d, true)));
+  }
+  if (mics.length){
+    list.append(head('Microfones'));
+    mics.forEach(d => list.append(extraRow(d, false)));
+  }
+  if (!mons.length && /linux/i.test(navigator.userAgent)){
+    const h = document.createElement('p');
+    h.className = 'exhead';
+    h.textContent = 'Som do sistema não apareceu? (Chrome no Linux esconde os "Monitor de…")';
+    list.append(h);
+    const pre = document.createElement('pre');
+    pre.style.cssText = 'font-size:11px;white-space:pre-wrap;user-select:all;background:#1e1f22;padding:8px;border-radius:6px;color:#dbdee1;margin:0 0 8px';
+    pre.textContent =
+      "pactl load-module module-remap-source \\\n" +
+      "  master=$(pactl get-default-sink).monitor \\\n" +
+      "  source_name=xora_sistema \\\n" +
+      "  source_properties=device.description=SomDoSistema";
+    list.append(pre);
+    const t = document.createElement('p');
+    t.style.cssText = 'font-size:12px;color:#949ba4;margin:0 0 8px';
+    t.textContent = 'Rode isso no terminal uma vez, feche e reabra este seletor: vai aparecer "SomDoSistema" em Microfones. Escolha ele (se mudar de saída de áudio, rode de novo).';
+    list.append(t);
+  }
+  if (!devs.length){
+    const p = document.createElement('p');
+    p.style.cssText = 'font-size:12px;color:#949ba4';
+    p.textContent = 'Nenhuma entrada de áudio encontrada.';
+    list.append(p);
+  }
+  $('#extraModal').classList.add('show');
+}
+
+function extraRow(d, isMonitor){
+  const b = document.createElement('button');
+  b.className = 'exitem';
+  const label = d.label || (isMonitor ? 'Saída do sistema' : 'Entrada de áudio');
+  b.textContent = (d.deviceId === extraDevId ? '✓ ' : (isMonitor ? '🔊 ' : '🎙️ ')) + label;
+  b.addEventListener('click', () => useExtraDevice(d.deviceId, isMonitor));
+  return b;
+}
+
+async function useExtraDevice(devId, isMonitor){
+  stopExtra();
+  try{
+    // Tenta capturar sem restrições rígidas para evitar o erro de MediaDevices
+    extraStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId: devId ? { exact: devId } : undefined,   // exact: com 'ideal' o Chrome cai no mic padrão em silêncio
+        echoCancellation: isMonitor,
+        noiseSuppression: false,
+        autoGainControl: false
+      }
+    });
+    extraDevId = devId;
+    extraNode = audioCtx.createMediaStreamSource(extraStream);
+    extraNode.connect(mixDest);
+    $('#extraModal').classList.remove('show');
+    sysMsg(isMonitor
+      ? '🎧 Capturando a saída do sistema com sucesso.'
+      : '🎧 Áudio extra ativado — será misturado na sua transmissão.');
+    updatePanelButtons();
+  }catch(e){
+    alert('Não consegui capturar essa entrada: ' + (e.message || e.name));
+  }
+}
+
+function stopExtra(){
+  if (extraNode){ try{ extraNode.disconnect(); }catch(e){} extraNode = null; }
+  if (extraStream){ extraStream.getTracks().forEach(t => t.stop()); extraStream = null; }
+  extraDevId = null;
+  updatePanelButtons();
+}
+
+/* ---------- mute (só o microfone — tela e áudio extra continuam) ---------- */
+ $('#btnMute').addEventListener('click', () => {
+  if (noMic || !inVoice) return;
+  muted = !muted;
+  if (micStream) micStream.getAudioTracks().forEach(t => t.enabled = !muted);
+  if (muted && speakingNow){ speakingNow = false; pushSpeak(false); }
+  pushState(); updatePanelButtons();
+});
+ $('#btnLeave').addEventListener('click', leaveVoice);
+
+function updatePanelButtons(){
+  for (const id of ['btnMute','btnExtra','btnScreen','btnLeave']) $('#'+id).classList.toggle('disabled', !inVoice);
+  $('#btnMute').textContent = noMic ? '🚫' : (muted ? '🔇' : '🎙️');
+  $('#btnMute').title = noMic ? 'Você entrou sem microfone' : 'Silenciar microfone (tela e áudio extra não são afetados)';
+  $('#btnMute').classList.toggle('off', muted && !noMic);
+  $('#btnExtra').classList.toggle('on', !!extraStream);
+  $('#btnExtra').title = extraStream ? 'Áudio extra ATIVO — clique para gerenciar' : 'Som de jogo/app (saída do sistema)';
+  $('#btnScreen').classList.toggle('on', !!screenTrack);
+}
+
+/* ---------- indicador de "falando" (só microfone) ---------- */
+function startDetector(){
+  if (!audioCtx || !micStream) return;
+  const src = audioCtx.createMediaStreamSource(micStream);
+  const an = audioCtx.createAnalyser(); an.fftSize = 512; an.smoothingTimeConstant = .6;
+  src.connect(an);
+  const buf = new Uint8Array(an.frequencyBinCount);
+  let smooth = 0;
+  detectorTimer = setInterval(() => {
+    if (!inVoice || !micStream) return;
+    an.getByteFrequencyData(buf);
+    let s = 0; for (const v of buf) s += v;
+    smooth = smooth*.75 + (s/buf.length)*.25;
+    const talking = smooth > SPEAK_TH && !muted;
+    if (talking !== speakingNow){ speakingNow = talking; pushSpeak(talking); }
+  }, 150);
+}
+
+/* ---------- palco: visualização da(s) tela(s) ---------- */
+function updateScreenView(){
+  const box = $('#screenView'), video = $('#screenVideo');
+  const sharers = rosterList.filter(m => m.screen);
+
+  if (!sharers.length){
+    box.style.display = 'none';
+    video.srcObject = null;
+    $('#tapToPlay').classList.remove('show');
+    screenMinimized = false; activeScreenId = null;
+    return;
+  }
+  // mantém minha escolha; se ela parou de compartilhar, cai pra outra
+  if (!sharers.some(m => m.id === activeScreenId)) activeScreenId = sharers[0].id;
+  const active = sharers.find(m => m.id === activeScreenId);
+
+  box.style.display = 'block';
+  box.classList.toggle('min', screenMinimized);
+
+  const label = $('#screenLabel');
+  if (sharers.length > 1){
+    label.innerHTML = '🖥️ <b>Telas compartilhadas</b> — escolha qual assistir:';
+    const tabs = $('#screenTabs'); tabs.innerHTML = '';
+    for (const m of sharers){
+      const b = document.createElement('button');
+      b.className = 'stab' + (m.id === activeScreenId ? ' active' : '');
+      b.textContent = m.name + (m.id === myId ? ' (você)' : '');
+      b.addEventListener('click', () => { activeScreenId = m.id; updateScreenView(); });
+      tabs.append(b);
+    }
+  } else {
+    label.innerHTML = '🖥️ <b></b> está compartilhando a tela';
+    label.querySelector('b').textContent = active.name + (active.id === myId ? ' (você)' : '');
+    $('#screenTabs').innerHTML = '';
+  }
+
+  const btn = $('#screenToggle');
+  btn.textContent = screenMinimized ? '⬆ Ampliar' : '⬇ Minimizar';
+  btn.title = screenMinimized
+    ? 'Mostrar o preview da tela'
+    : 'Esconder o preview para economizar CPU/GPU — a transmissão continua normalmente';
+
+  if (screenMinimized){
+    video.srcObject = null;              // para de renderizar — é aqui que economiza
+    $('#tapToPlay').classList.remove('show');
+  } else {
+    // só a faixa de vídeo — o áudio da tela já chega misturado na voz (elemento <audio>)
+    const src = (active.id === myId) ? screenStream : getVideoOnlyStream(active.id);
+    if (video.srcObject !== src) video.srcObject = src;
+    video.muted = true; video.volume = 0;
+    if (src) tryPlayVideo();
+    else $('#tapToPlay').classList.remove('show');
+  }
+}
+
+function getVideoOnlyStream(id){
+  if (videoOnlyStreams.has(id)) return videoOnlyStreams.get(id);
+  const rs = remoteStreams.get(id); if (!rs) return null;
+  const vt = rs.getVideoTracks()[0]; if (!vt) return null;
+  const vs = new MediaStream([vt]);   // funciona com replaceTrack: a mesma track muda de conteúdo
+  videoOnlyStreams.set(id, vs);
+  return vs;
+}
+
+/* reprodução do palco à prova de bloqueio de autoplay (comum no Android) */
+function tryPlayVideo(){
+  const v = $('#screenVideo');
+  if (!v.srcObject) return;
+  v.muted = true; v.volume = 0;
+  const p = v.play();
+  if (p) p.then(() => $('#tapToPlay').classList.remove('show'))
+           .catch(() => $('#tapToPlay').classList.add('show'));
+}
+ $('#tapToPlay').addEventListener('click', () => {
+  const v = $('#screenVideo');
+  v.muted = true; v.volume = 0;
+  v.play().then(() => $('#tapToPlay').classList.remove('show')).catch(()=>{});
+});
+ $('#screenVideo').addEventListener('playing', () => $('#tapToPlay').classList.remove('show'));
+ $('#screenVideo').addEventListener('pause', () => {
+  const v = $('#screenVideo');
+  if (v.srcObject && !screenMinimized) $('#tapToPlay').classList.add('show');
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  const v = $('#screenVideo');
+  if (v.srcObject && !screenMinimized) tryPlayVideo();   // voltou pro app → retoma o vídeo
+  for (const a of [...pendingAudios]){
+    a.play().then(() => pendingAudios.delete(a)).catch(()=>{});
+  }
+});
+// qualquer toque na página destrava os áudios pendentes (política de autoplay mobile)
+document.addEventListener('pointerdown', () => {
+  for (const a of [...pendingAudios]){
+    a.play().then(() => pendingAudios.delete(a)).catch(()=>{});
+  }
+}, true);
+
+ $('#screenToggle').addEventListener('click', () => {
+  screenMinimized = !screenMinimized;
+  updateScreenView();
+});
+
+/* ---------- chat de texto ---------- */
+ $('#chatForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const text = $('#chatInput').value.trim(); if (!text) return;
+  $('#chatInput').value = '';
+  addChat(myName, text);
+  const msg = {t:'chat', name:myName, text};
+  if (isHost){ for (const c of dataConns.values()) if (c.open) c.send(msg); }
+  else sendHost(msg);
+});
+
+function addChat(name, text){
+  const w = $('#messages');
+  const d = document.createElement('div'); d.className = 'msg';
+  d.append(mkAvatar(name));
+  const col = document.createElement('div');
+  const h = document.createElement('div'); h.className = 'mh';
+  const b = document.createElement('b'); b.textContent = name; h.append(b);
+  const tm = document.createElement('time');
+  tm.textContent = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  h.append(tm);
+  const bd = document.createElement('div'); bd.className = 'mb'; bd.textContent = text;
+  col.append(h, bd); d.append(col);
+  w.append(d); w.scrollTop = w.scrollHeight;
+}
+function sysMsg(text){
+  const w = $('#messages');
+  const d = document.createElement('div'); d.className = 'msg sys'; d.textContent = text;
+  w.append(d); w.scrollTop = w.scrollHeight;
+}
+</script>
+</body>
+</html>
