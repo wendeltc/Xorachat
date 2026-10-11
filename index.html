@@ -27,8 +27,8 @@
   .sidebar{width:280px;background:#2b2d31;display:flex;flex-direction:column;flex-shrink:0}
   .guild-header{padding:12px 10px 12px 16px;font-weight:700;color:#fff;box-shadow:0 1px 0 #1e1f22;display:flex;align-items:center;gap:8px}
   .guild-header span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #collapseBtn{background:transparent;border:0;color:#b5bac1;font-size:15px;cursor:pointer;width:30px;height:30px;border-radius:6px;flex-shrink:0;line-height:1}
-  #collapseBtn:hover{background:#35373c;color:#fff}
+  #collapseBtn,#settingsBtn,#leaveRoomBtn{background:transparent;border:0;color:#b5bac1;font-size:15px;cursor:pointer;width:30px;height:30px;border-radius:6px;flex-shrink:0;line-height:1}
+  #collapseBtn:hover,#settingsBtn:hover,#leaveRoomBtn:hover{background:#35373c;color:#fff}
   .sidebar.collapsed .channels{display:none}
   .channels{flex:1;overflow-y:auto;padding:8px}
   .cat{font-size:11px;font-weight:700;color:#949ba4;letter-spacing:.5px;margin:18px 8px 4px;text-transform:uppercase}
@@ -103,6 +103,55 @@
   .excancel{background:transparent;border:0;color:#949ba4;font-size:13px;cursor:pointer;padding:8px;width:100%;border-radius:6px;margin-top:4px}
   .excancel:hover{color:#fff;background:#35373c}
 
+  /* ===== controles do vídeo: maximizar / tela cheia ===== */
+  .vctl{position:absolute;right:8px;bottom:8px;display:flex;gap:6px;opacity:0;transition:opacity .15s}
+  .video-wrap:hover .vctl,.vctl:focus-within{opacity:1}
+  @media (hover:none){.vctl{opacity:1}}
+  .vctl button{background:rgba(0,0,0,.65);color:#fff;border:0;border-radius:6px;width:36px;height:30px;font-size:16px;cursor:pointer}
+  .vctl button:hover{background:#5865f2}
+  #screenView.min .vctl{display:none}
+  #screenView.max{position:fixed;inset:0;z-index:15;background:#111214;padding:10px;display:flex!important;flex-direction:column}
+  #screenView.max .video-wrap{flex:1;min-height:0}
+  #screenView.max #screenVideo{height:100%;max-height:none;object-fit:contain}
+  .video-wrap:fullscreen{background:#000}
+  .video-wrap:fullscreen #screenVideo{width:100%;height:100%;max-height:none;object-fit:contain;border-radius:0}
+  .video-wrap:-webkit-full-screen{background:#000}
+  .video-wrap:-webkit-full-screen #screenVideo{width:100%;height:100%;max-height:none;object-fit:contain;border-radius:0}
+
+  /* ===== configurações ===== */
+  #settingsModal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:20}
+  #settingsModal.show{display:flex}
+  .sw{display:flex;gap:10px;align-items:center;font-size:13.5px;color:#dbdee1;padding:7px 0;cursor:pointer}
+  .sw input{width:16px;height:16px;accent-color:#5865f2;flex-shrink:0}
+  #gateBox{padding:2px 0 8px 26px}
+  #gateBox.off{opacity:.4;pointer-events:none}
+  #gateBox p{margin:6px 0 0}
+  .meter{position:relative;height:10px;background:#1e1f22;border-radius:5px;overflow:hidden;margin-bottom:8px}
+  #meterFill{height:100%;width:0;background:#4e5058;transition:width .05s}
+  #meterFill.open{background:#23a55a}
+  #meterMark{position:absolute;top:0;bottom:0;width:2px;background:#f0b232}
+  #gateBox input[type=range]{width:100%;accent-color:#5865f2}
+  .selrow{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 8px}
+  .selrow label{font-size:12px;color:#949ba4;display:flex;flex-direction:column;gap:4px;flex:1;min-width:120px}
+  .selrow select{background:#1e1f22;color:#dbdee1;border:0;border-radius:6px;padding:9px;font-size:13.5px}
+
+  /* ===== volume individual ===== */
+  #volPop{position:fixed;z-index:30;background:#111214;border-radius:8px;padding:12px;width:220px;box-shadow:0 8px 24px rgba(0,0,0,.55);display:none}
+  #volPop.show{display:block}
+  .vp-name{font-size:13px;font-weight:600;color:#fff;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #volPop input[type=range]{width:100%;accent-color:#5865f2}
+  .vp-row{display:flex;align-items:center;gap:6px;margin-top:8px}
+  .vp-row span{flex:1;font-size:13px;color:#fff;font-weight:600}
+  .vp-row button{background:#2b2d31;border:0;color:#dbdee1;border-radius:5px;padding:5px 9px;font-size:12px;cursor:pointer}
+  .vp-row button:hover{background:#35373c;color:#fff}
+
+  /* ===== expulsar (só anfitrião) ===== */
+  .kick{margin-left:2px;cursor:pointer;color:#949ba4;font-size:12px;padding:2px 6px;border-radius:4px;opacity:0;transition:opacity .15s}
+  .mrow:hover .kick{opacity:1}
+  @media (hover:none){.kick{opacity:1}}
+  .kick:hover{background:#da373c;color:#fff}
+  #volKick{background:#da373c!important;color:#fff!important}
+
   /* ===== mobile ===== */
   @media (max-width: 720px){
     #app{flex-direction:column}
@@ -131,6 +180,8 @@
   <aside class="sidebar" id="sidebar">
     <div class="guild-header">
       <span id="roomTitle"></span>
+      <button id="settingsBtn" type="button" title="Áudio e transmissão (filtro de ruído, resolução, FPS)">⚙️</button>
+      <button id="leaveRoomBtn" type="button" title="Sair da sala e voltar ao início">↩</button>
       <button id="collapseBtn" type="button" title="Recolher/mostrar a lista de participantes">▾</button>
     </div>
     <div class="channels">
@@ -160,9 +211,13 @@
           <button id="screenToggle">⬇ Minimizar</button>
         </div>
       </div>
-      <div class="video-wrap">
+      <div class="video-wrap" id="screenWrap">
         <video id="screenVideo" autoplay playsinline muted></video>
         <button id="tapToPlay" type="button">▶ Toque para assistir<small>o navegador bloqueou a reprodução automática</small></button>
+        <div class="vctl">
+          <button id="btnExpand" type="button" title="Maximizar (preencher a janela)">⤢</button>
+          <button id="btnFull" type="button" title="Tela cheia">⛶</button>
+        </div>
       </div>
     </div>
     <div id="messages"></div>
@@ -171,6 +226,56 @@
       <button type="submit">Enviar</button>
     </form>
   </main>
+</div>
+
+<!-- configurações -->
+<div id="settingsModal">
+  <div class="exbox">
+    <h3>⚙️ Áudio e transmissão</h3>
+    <div class="exhead">Microfone</div>
+    <label class="sw"><input type="checkbox" id="setNs"> Supressão de ruído do navegador</label>
+    <label class="sw"><input type="checkbox" id="setAgc"> Ganho automático (nivela o volume da voz)</label>
+    <label class="sw"><input type="checkbox" id="setEc"> Cancelamento de eco</label>
+    <label class="sw"><input type="checkbox" id="setHp"> Cortar graves (ventilador, vento, batidas na mesa)</label>
+    <label class="sw"><input type="checkbox" id="setGate"> Porta de ruído (silencia o mic quando você não fala)</label>
+    <div id="gateBox">
+      <div class="meter"><div id="meterFill"></div><div id="meterMark"></div></div>
+      <input type="range" id="setTh" min="-70" max="-20" step="1">
+      <p id="meterTxt"></p>
+    </div>
+    <div class="exhead">Transmissão de tela</div>
+    <div class="selrow">
+      <label>Resolução de envio
+        <select id="setRes">
+          <option value="orig">Original da tela</option>
+          <option value="1080">1080p</option>
+          <option value="720">720p</option>
+          <option value="480">480p</option>
+        </select>
+      </label>
+      <label>Quadros por segundo
+        <select id="setFps">
+          <option value="15">15 fps</option>
+          <option value="30">30 fps</option>
+          <option value="60">60 fps</option>
+        </select>
+      </label>
+    </div>
+    <p>Vale na hora, mesmo com a tela já sendo compartilhada. Cada amigo na chamada recebe uma cópia do vídeo: resolução e FPS altos exigem mais upload (e mais CPU de quem assiste).</p>
+    <button class="excancel" id="settingsClose">Fechar</button>
+  </div>
+</div>
+
+<!-- volume individual -->
+<div id="volPop">
+  <div class="vp-name" id="vpName"></div>
+  <input type="range" id="volRange" min="0" max="200" step="5">
+  <div class="vp-row">
+    <span id="volVal">100%</span>
+    <button id="volMute" type="button">Silenciar</button>
+    <button id="volReset" type="button">100%</button>
+    <button id="volKick" type="button" hidden title="Remover esta pessoa da sala">Expulsar</button>
+  </div>
 </div>
 
 <!-- seletor de fonte de áudio extra -->
@@ -223,8 +328,19 @@ let extraStream = null, extraNode = null, extraDevId = null;   // áudio extra (
 let screenMinimized = false;        // preview minimizado — não afeta a transmissão
 let activeScreenId = null;          // qual compartilhamento estou assistindo
 const videoOnlyStreams = new Map(); // cache: stream só de vídeo, por pessoa
-const localMutes = new Set();       // pessoas silenciadas só para mim
 const pendingAudios = new Set();    // <audio> que esperam um gesto p/ tocar (mobile)
+
+/* preferências (guardadas no navegador) */
+const PREF_KEY = 'xorachat-prefs';
+const prefs = Object.assign(
+  { ns:true, agc:true, ec:true, hp:true, gate:false, gateTh:-45, res:'orig', fps:'30', vols:{} },
+  (() => { try{ return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; }catch(e){ return {}; } })()
+);
+if (!prefs.vols) prefs.vols = {};
+function savePrefs(){ try{ localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); }catch(e){} }
+
+let roomSession = 0;                 // muda ao sair da sala: invalida reconexões pendentes
+const later = (fn, ms) => { const s = roomSession; setTimeout(() => { if (s === roomSession) fn(); }, ms); };
 
 /* ---------- utilidades ---------- */
 function slug(t){ return (t.toLowerCase().trim().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,24) || 'sala'); }
@@ -324,13 +440,13 @@ function joinAsClient(){
       updatePanelButtons();
     });
     hostConn.on('data', clientOnData);
-    hostConn.on('close', hostLost);
+    const hc = hostConn; hc.on('close', () => { if (hostConn === hc) hostLost(); });
   });
   peer.on('call', answerCall);
   peer.on('error', err => {
     if (err.type === 'peer-unavailable'){      // anfitrião sumiu → tento assumir a sala
       if (++retries > 8){ alert('Não foi possível conectar à sala. Recarregue a página.'); location.reload(); return; }
-      setTimeout(() => { try{ peer.destroy(); }catch(e){} connect(); }, 600 + Math.random()*800);
+      later(() => { try{ peer.destroy(); }catch(e){} connect(); }, 600 + Math.random()*800);
     } else console.error('peer error:', err.type);
   });
   peer.on('disconnected', () => { try{ peer.reconnect(); }catch(e){} });
@@ -342,7 +458,7 @@ function hostLost(){
   hangupCalls();                               // mesh quebrou; remonta após reconectar
   if (++retries > 5){ alert('O anfitrião saiu e não consegui reconectar. Recarregue a página.'); location.reload(); return; }
   $('#myStatus').textContent = 'Reconectando…';
-  setTimeout(() => { try{ peer.destroy(); }catch(e){} connect(); }, 800 + Math.random()*900);
+  later(() => { try{ peer.destroy(); }catch(e){} connect(); }, 800 + Math.random()*900);
 }
 
 function sendHost(msg){
@@ -405,6 +521,7 @@ function clientOnData(d){
   if (d.t === 'roster'){ retries = 0; $('#myStatus').textContent = 'Online'; applyRoster(d.members); }
   else if (d.t === 'chat') addChat(d.name, d.text);
   else if (d.t === 'sys') sysMsg(d.text);
+  else if (d.t === 'kick') setTimeout(() => { leaveRoom(); alert('Você foi removido(a) da sala pelo anfitrião.'); }, 0);
 }
 
 function pushState(){
@@ -437,31 +554,34 @@ function renderRoster(list){
     const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Ninguém na chamada'; vl.append(e);
   } else for (const m of inV) vl.append(memberRow(m, false));
   const ol = $('#onlineList'); ol.innerHTML = '';
-  for (const m of list) ol.append(memberRow(m, m.id === myId));
+  for (const m of list) ol.append(memberRow(m, m.id === myId, true));
   $('#onlineCount').textContent = list.length;
 }
-function memberRow(m, isMe){
+function memberRow(m, isMe, kickable){
   const row = document.createElement('div');
   row.className = 'mrow' + (m.speaking && !m.muted ? ' speaking' : '');
   row.append(mkAvatar(m.name));
   const nm = document.createElement('span'); nm.className = 'mname';
   nm.textContent = m.name + (isMe ? ' (você)' : '');
   row.append(nm);
-  if (m.inVoice && (m.muted || (!isMe && localMutes.has(m.id)))){
+  const vol = (!isMe && m.inVoice) ? volFor(m.id, m.name) : 1;
+  if (m.inVoice && (m.muted || vol === 0)){
     const i = document.createElement('span'); i.className = 'micon'; i.textContent = '🔇'; row.append(i);
+  } else if (vol !== 1){
+    const i = document.createElement('span'); i.className = 'micon'; i.textContent = Math.round(vol*100) + '%'; row.append(i);
   }
   if (m.screen){ const i = document.createElement('span'); i.className = 'micon'; i.textContent = '🖥️'; row.append(i); }
   if (!isMe && m.inVoice){
+    row.dataset.id = m.id;
     row.style.cursor = 'pointer';
-    row.title = localMutes.has(m.id)
-      ? 'Silenciado(a) só para você — clique para reativar'
-      : 'Clique para silenciar esta pessoa só para você';
-    row.addEventListener('click', () => {
-      if (localMutes.has(m.id)) localMutes.delete(m.id); else localMutes.add(m.id);
-      const a = document.getElementById('aud-' + m.id);
-      if (a) a.volume = localMutes.has(m.id) ? 0 : 1;
-      renderRoster(rosterList);
-    });
+    row.title = 'Clique para ajustar o volume desta pessoa (só para você)';
+    row.addEventListener('click', () => openVolPop(m.id, m.name, row));
+  }
+  if (kickable && isHost && !isMe){
+    const k = document.createElement('span');
+    k.className = 'kick'; k.textContent = '✕'; k.title = 'Expulsar ' + m.name + ' da sala';
+    k.addEventListener('click', ev => { ev.stopPropagation(); kickMember(m.id); });
+    row.append(k);
   }
   return row;
 }
@@ -483,10 +603,10 @@ async function joinVoice(){
   try{
     micStream = await navigator.mediaDevices.getUserMedia({
       audio: {
-        echoCancellation: true,
+        echoCancellation: prefs.ec,
         echoCancellationType: 'system', // usa o cancelador de eco do SO quando disponível
-        noiseSuppression: true,
-        autoGainControl: true
+        noiseSuppression: prefs.ns,
+        autoGainControl: prefs.agc
       }
     });
     noMic = false; muted = false;
@@ -526,8 +646,7 @@ async function joinVoice(){
       const g = audioCtx.createGain(); g.gain.value = 0;
       osc.connect(g); g.connect(mixDest); osc.start();
     } else {
-      const src = audioCtx.createMediaStreamSource(micStream);
-      src.connect(mixDest);
+      await setupMicChain();      // mic → corte de graves → porta de ruído → mixer
     }
   }catch(e){
     try{ audioCtx && audioCtx.close(); }catch(_){}
@@ -559,6 +678,7 @@ function leaveVoice(){
   if (detectorTimer){ clearInterval(detectorTimer); detectorTimer = null; }
   if (audioCtx){ audioCtx.close().catch(()=>{}); audioCtx = null; }
   mixDest = null; screenAudioNode = null; screenAudioTrack = null;
+  micSrc = null; hpNode = null; gateNode = null; gateOpen = true;
   noMic = false;
   $('#vcHint').textContent = 'Entrar';
   $('#voiceChannel').classList.remove('connected');
@@ -572,6 +692,7 @@ function hangupCalls(){
   document.querySelectorAll('audio.remote').forEach(a => a.remove());
   remoteStreams.clear();
   videoOnlyStreams.clear();
+  for (const id of [...remoteNodes.keys()]) dropRemoteNode(id);
   activeScreenId = null;
 }
 
@@ -600,13 +721,15 @@ function trackCall(c){
       document.body.appendChild(a);
     }
     a.srcObject = rs;
-    a.volume = localMutes.has(c.peer) ? 0 : 1;
+    attachRemoteAudio(c.peer, rs, a);
     a.play().then(() => pendingAudios.delete(a))
-            .catch(() => pendingAudios.add(a));  // mobile: espera um gesto do usuário
+            .catch(() => { if (!a.muted) pendingAudios.add(a); });  // mobile: espera um gesto do usuário
+    if (screenTrack){ replaceVideoFor(c, screenTrack); applyScreenQuality(); }   // quem entra depois também recebe a tela
     updateScreenView();
   });
   c.on('close', () => {
     calls.delete(c.peer);
+    dropRemoteNode(c.peer);
     document.getElementById('aud-' + c.peer)?.remove();
     remoteStreams.delete(c.peer);
     videoOnlyStreams.delete(c.peer);
@@ -635,13 +758,13 @@ async function toggleScreen(){
   }
   try{
     screenStream = await navigator.mediaDevices.getDisplayMedia({
-      video:{ frameRate:30 },
+      video:{ frameRate:{ ideal:+prefs.fps, max:+prefs.fps } },
       // sem DSP de voz no áudio da tela: AEC/NS tratariam música/jogo como "ruído"
       audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false },
       systemAudio:'include'   // dica pro Chrome oferecer "áudio do sistema" (Windows)
     });
     screenTrack = screenStream.getVideoTracks()[0];
-    try{ screenTrack.contentHint = 'detail'; }catch(e){}  // otimiza encoder p/ conteúdo de tela
+    try{ screenTrack.contentHint = (+prefs.fps >= 60 ? 'motion' : 'detail'); }catch(e){}  // otimiza encoder p/ conteúdo de tela
 
     // conecta o áudio da tela no mixer — a faixa enviada não muda, zero renegociação
     screenAudioTrack = screenStream.getAudioTracks()[0] || null;
@@ -657,6 +780,8 @@ async function toggleScreen(){
 
     screenTrack.addEventListener('ended', () => stopScreen());  // botão "parar" do navegador
     replaceVideoForAll(screenTrack);
+    applyScreenQuality();
+    sysMsg('🖥️ Transmitindo em ' + (prefs.res === 'orig' ? 'resolução original' : prefs.res + 'p') + ' · ' + prefs.fps + ' fps (mude em ⚙️).');
     pushState();
     updatePanelButtons();
     if (window.xoraDesktop && !screenAudioTrack) autoSystemAudio();
@@ -679,13 +804,12 @@ async function autoSystemAudio(){
     autoExtra = !!extraStream;
   }catch(e){}
 }
-function replaceVideoForAll(track){
-  for (const c of calls.values()){
-    const pc = c.peerConnection; if (!pc) continue;
-    const s = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-    if (s) s.replaceTrack(track).catch(()=>{});
-  }
+function replaceVideoFor(c, track){
+  const pc = c.peerConnection; if (!pc) return;
+  const s = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+  if (s) s.replaceTrack(track).catch(()=>{});
 }
+function replaceVideoForAll(track){ for (const c of calls.values()) replaceVideoFor(c, track); }
 function stopScreen(push = true){
   if (autoExtra){ autoExtra = false; stopExtra(); }
   if (screenAudioNode){ try{ screenAudioNode.disconnect(); }catch(e){} screenAudioNode = null; }
@@ -841,7 +965,7 @@ function startDetector(){
     an.getByteFrequencyData(buf);
     let s = 0; for (const v of buf) s += v;
     smooth = smooth*.75 + (s/buf.length)*.25;
-    const talking = smooth > SPEAK_TH && !muted;
+    const talking = (gateNode && prefs.gate ? gateOpen : smooth > SPEAK_TH) && !muted;
     if (talking !== speakingNow){ speakingNow = talking; pushSpeak(talking); }
   }, 150);
 }
@@ -853,6 +977,7 @@ function updateScreenView(){
 
   if (!sharers.length){
     box.style.display = 'none';
+    box.classList.remove('max');
     video.srcObject = null;
     $('#tapToPlay').classList.remove('show');
     screenMinimized = false; activeScreenId = null;
@@ -939,6 +1064,7 @@ document.addEventListener('visibilitychange', () => {
 });
 // qualquer toque na página destrava os áudios pendentes (política de autoplay mobile)
 document.addEventListener('pointerdown', () => {
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
   for (const a of [...pendingAudios]){
     a.play().then(() => pendingAudios.delete(a)).catch(()=>{});
   }
@@ -946,8 +1072,290 @@ document.addEventListener('pointerdown', () => {
 
  $('#screenToggle').addEventListener('click', () => {
   screenMinimized = !screenMinimized;
+  if (screenMinimized) toggleExpand(false);
   updateScreenView();
 });
+
+/* ---------- microfone: corte de graves + porta de ruído ---------- */
+let micSrc = null, hpNode = null, gateNode = null, gateOpen = true, gateDb = -90;
+
+// porta de ruído em AudioWorklet (roda na thread de áudio, não sofre com aba em segundo plano)
+const GATE_CODE = `
+class XoraGate extends AudioWorkletProcessor {
+  constructor(){
+    super();
+    this.on = false; this.th = -45; this.g = 1; this.hold = 0; this.open = true; this.t = 0;
+    this.up = 1 - Math.exp(-1 / (sampleRate * 0.004));
+    this.down = 1 - Math.exp(-1 / (sampleRate * 0.06));
+    this.port.onmessage = e => { const d = e.data; if ('on' in d) this.on = d.on; if ('th' in d) this.th = d.th; };
+  }
+  process(inputs, outputs){
+    const inp = inputs[0], out = outputs[0];
+    if (!inp || !inp.length) return true;
+    const x = inp[0], n = x.length;
+    let s = 0; for (let i = 0; i < n; i++) s += x[i] * x[i];
+    const db = 20 * Math.log10(Math.sqrt(s / n) + 1e-9);
+    const dt = n / sampleRate;
+    if (!this.on || db > this.th){ this.open = true; this.hold = 0.25; }
+    else { this.hold -= dt; if (this.hold <= 0) this.open = false; }
+    const target = this.open ? 1 : 0;
+    const k = target > this.g ? this.up : this.down;
+    let g = this.g;
+    for (let ch = 0; ch < out.length; ch++){
+      const xi = inp[ch] || inp[0], xo = out[ch];
+      g = this.g;
+      for (let i = 0; i < n; i++){ g += (target - g) * k; xo[i] = xi[i] * g; }
+    }
+    this.g = g;
+    this.t += dt;
+    if (this.t > 0.05){ this.t = 0; this.port.postMessage({ db: db, open: this.open }); }
+    return true;
+  }
+}
+registerProcessor('xora-gate', XoraGate);
+`;
+
+async function setupMicChain(){
+  micSrc = audioCtx.createMediaStreamSource(micStream);
+  hpNode = audioCtx.createBiquadFilter();
+  hpNode.type = 'highpass'; hpNode.Q.value = 0.7;
+  hpNode.frequency.value = prefs.hp ? 90 : 1;
+  micSrc.connect(hpNode);
+  gateNode = null; gateOpen = true; gateDb = -90;
+  try{
+    if (audioCtx.audioWorklet){
+      const url = URL.createObjectURL(new Blob([GATE_CODE], {type:'application/javascript'}));
+      await audioCtx.audioWorklet.addModule(url);
+      URL.revokeObjectURL(url);
+      gateNode = new AudioWorkletNode(audioCtx, 'xora-gate', {
+        numberOfInputs:1, numberOfOutputs:1, channelCount:1, channelCountMode:'explicit', outputChannelCount:[1]
+      });
+      gateNode.port.onmessage = e => { gateOpen = e.data.open; gateDb = e.data.db; drawMeter(); };
+      gateNode.port.postMessage({ on:prefs.gate, th:prefs.gateTh });
+    }
+  }catch(e){ gateNode = null; }     // sem worklet (ex.: página sem HTTPS): segue sem a porta
+  if (gateNode){ hpNode.connect(gateNode); gateNode.connect(mixDest); }
+  else hpNode.connect(mixDest);
+}
+
+function applyMicPrefs(){
+  const t = micStream && micStream.getAudioTracks()[0];
+  if (t) t.applyConstraints({ noiseSuppression:prefs.ns, autoGainControl:prefs.agc, echoCancellation:prefs.ec }).catch(()=>{});
+  if (hpNode) hpNode.frequency.value = prefs.hp ? 90 : 1;
+  if (gateNode) gateNode.port.postMessage({ on:prefs.gate, th:prefs.gateTh });
+}
+
+/* ---------- configurações ---------- */
+const dbPct = db => Math.max(0, Math.min(100, (db + 80) / 80 * 100));
+function drawMeter(){
+  if (!$('#settingsModal').classList.contains('show')) return;
+  $('#meterFill').style.width = dbPct(gateDb) + '%';
+  $('#meterFill').classList.toggle('open', gateOpen);
+  $('#meterMark').style.left = dbPct(prefs.gateTh) + '%';
+  $('#meterTxt').textContent = !inVoice
+    ? 'Entre na chamada para ver o nível do seu microfone aqui.'
+    : (!gateNode ? 'Porta de ruído indisponível neste navegador (precisa de HTTPS).'
+      : 'Limite: ' + prefs.gateTh + ' dB — fale normalmente: a barra deve passar da marca amarela quando você fala e ficar abaixo no silêncio.');
+}
+function openSettings(){
+  $('#setNs').checked = prefs.ns; $('#setAgc').checked = prefs.agc; $('#setEc').checked = prefs.ec;
+  $('#setHp').checked = prefs.hp; $('#setGate').checked = prefs.gate;
+  $('#setTh').value = prefs.gateTh; $('#gateBox').classList.toggle('off', !prefs.gate);
+  $('#setRes').value = prefs.res; $('#setFps').value = String(prefs.fps);
+  $('#settingsModal').classList.add('show');
+  drawMeter();
+}
+function bindPref(id, key, isBool, after){
+  $(id).addEventListener(isBool ? 'change' : 'input', e => {
+    prefs[key] = isBool ? e.target.checked : (e.target.type === 'range' ? +e.target.value : e.target.value);
+    savePrefs(); if (after) after(); drawMeter();
+  });
+}
+bindPref('#setNs','ns',true,applyMicPrefs);
+bindPref('#setAgc','agc',true,applyMicPrefs);
+bindPref('#setEc','ec',true,applyMicPrefs);
+bindPref('#setHp','hp',true,applyMicPrefs);
+bindPref('#setGate','gate',true,() => { $('#gateBox').classList.toggle('off', !prefs.gate); applyMicPrefs(); });
+bindPref('#setTh','gateTh',false,applyMicPrefs);
+bindPref('#setRes','res',false,applyScreenQuality);
+bindPref('#setFps','fps',false,() => {
+  if (screenTrack){ try{ screenTrack.contentHint = (+prefs.fps >= 60 ? 'motion' : 'detail'); }catch(e){} }
+  applyScreenQuality();
+});
+$('#settingsBtn').addEventListener('click', openSettings);
+$('#settingsClose').addEventListener('click', () => $('#settingsModal').classList.remove('show'));
+$('#settingsModal').addEventListener('click', e => { if (e.target === $('#settingsModal')) $('#settingsModal').classList.remove('show'); });
+
+/* ---------- qualidade da transmissão de tela (resolução / fps / bitrate) ---------- */
+async function applyScreenQuality(){
+  if (!screenTrack) return;
+  const fps = +prefs.fps, h = prefs.res === 'orig' ? 0 : +prefs.res;
+  try{ await screenTrack.applyConstraints({ frameRate:{ ideal:fps, max:fps } }); }catch(e){}
+  const srcH = (screenTrack.getSettings().height) || 1080;
+  const outH = h ? Math.min(h, srcH) : srcH;
+  const scale = h ? Math.max(1, srcH / h) : 1;
+  const base = outH > 1440 ? 9000 : outH >= 1080 ? 5000 : outH >= 720 ? 2800 : outH >= 480 ? 1300 : 800;  // kbps @30fps
+  const bitrate = Math.round(base * (fps >= 60 ? 1.6 : fps <= 15 ? 0.65 : 1) * 1000);
+  for (const c of calls.values()){
+    const pc = c.peerConnection; if (!pc) continue;
+    const snd = pc.getSenders().find(x => x.track && x.track.kind === 'video'); if (!snd) continue;
+    try{
+      const par = snd.getParameters();
+      if (!par.encodings || !par.encodings.length) par.encodings = [{}];
+      const e = par.encodings[0];
+      e.scaleResolutionDownBy = scale; e.maxFramerate = fps; e.maxBitrate = bitrate;
+      await snd.setParameters(par);
+    }catch(err){}
+  }
+}
+
+/* ---------- volume individual (só para mim) ---------- */
+const remoteNodes = new Map();   // id -> {src, g}  (WebAudio permite passar de 100%)
+const userVol = new Map();       // id -> 0..2
+const prevVol = new Map();
+const nameOf = id => (rosterList.find(m => m.id === id) || {}).name;
+function volFor(id, name){
+  if (userVol.has(id)) return userVol.get(id);
+  const n = name || nameOf(id);
+  return (n && prefs.vols[n] != null) ? prefs.vols[n] : 1;
+}
+function applyVolume(id){
+  const v = volFor(id), n = remoteNodes.get(id);
+  if (n) n.g.gain.value = v;
+  else { const a = document.getElementById('aud-' + id); if (a) a.volume = Math.min(1, v); }
+}
+function setVol(id, v){
+  userVol.set(id, v);
+  const n = nameOf(id);
+  if (n){ if (v === 1) delete prefs.vols[n]; else prefs.vols[n] = v; savePrefs(); }
+  applyVolume(id);
+}
+function dropRemoteNode(id){
+  const n = remoteNodes.get(id);
+  if (n){ try{ n.src.disconnect(); n.g.disconnect(); }catch(e){} remoteNodes.delete(id); }
+}
+function attachRemoteAudio(id, rs, a){
+  dropRemoteNode(id);
+  if (audioCtx && audioCtx.state !== 'closed' && rs.getAudioTracks().length){
+    try{
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+      const src = audioCtx.createMediaStreamSource(rs);
+      const g = audioCtx.createGain(); g.gain.value = volFor(id);
+      src.connect(g); g.connect(audioCtx.destination);
+      remoteNodes.set(id, {src, g});
+      a.muted = true;      // o som sai pelo WebAudio; o <audio> mudo só mantém o stream ativo
+      return;
+    }catch(e){}
+  }
+  a.muted = false; a.volume = Math.min(1, volFor(id));   // plano B: volume simples (até 100%)
+}
+
+let volPopId = null;
+function syncVolPop(){
+  const v = volFor(volPopId);
+  $('#volRange').value = Math.round(v * 100);
+  $('#volVal').textContent = Math.round(v * 100) + '%';
+  $('#volMute').textContent = v === 0 ? 'Reativar' : 'Silenciar';
+}
+function closeVolPop(){ $('#volPop').classList.remove('show'); volPopId = null; }
+function openVolPop(id, name, row){
+  const pop = $('#volPop');
+  if (volPopId === id && pop.classList.contains('show')){ closeVolPop(); return; }
+  volPopId = id;
+  $('#vpName').textContent = '🔊 ' + name;
+  syncVolPop();
+  $('#volKick').hidden = !isHost;
+  pop.classList.add('show');
+  const r = row.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  pop.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + 'px';
+  pop.style.top = (r.bottom + h + 8 > innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4) + 'px';
+}
+$('#volRange').addEventListener('input', e => {
+  if (!volPopId) return;
+  setVol(volPopId, e.target.value / 100); syncVolPop(); renderRoster(rosterList);
+});
+$('#volMute').addEventListener('click', () => {
+  if (!volPopId) return;
+  const v = volFor(volPopId);
+  if (v > 0){ prevVol.set(volPopId, v); setVol(volPopId, 0); }
+  else setVol(volPopId, prevVol.get(volPopId) || 1);
+  syncVolPop(); renderRoster(rosterList);
+});
+$('#volKick').addEventListener('click', () => {
+  const id = volPopId; closeVolPop(); if (id) kickMember(id);
+});
+$('#volReset').addEventListener('click', () => {
+  if (!volPopId) return;
+  setVol(volPopId, 1); syncVolPop(); renderRoster(rosterList);
+});
+document.addEventListener('pointerdown', e => {
+  if (!volPopId) return;
+  if (e.target.closest('#volPop') || e.target.closest('.mrow[data-id]')) return;
+  closeVolPop();
+}, true);
+
+/* ---------- vídeo: maximizar e tela cheia ---------- */
+function toggleExpand(force){
+  const box = $('#screenView');
+  const on = force !== undefined ? force : !box.classList.contains('max');
+  box.classList.toggle('max', on);
+  $('#btnExpand').textContent = on ? '⤡' : '⤢';
+  $('#btnExpand').title = on ? 'Voltar ao tamanho normal (Esc)' : 'Maximizar (preencher a janela)';
+}
+function toggleFull(){
+  const wrap = $('#screenWrap'), v = $('#screenVideo');
+  if (document.fullscreenElement || document.webkitFullscreenElement){
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    return;
+  }
+  const req = wrap.requestFullscreen || wrap.webkitRequestFullscreen;
+  if (req){ const pr = req.call(wrap); if (pr && pr.catch) pr.catch(()=>{}); }
+  else if (v.webkitEnterFullscreen) v.webkitEnterFullscreen();     // iPhone
+}
+$('#btnExpand').addEventListener('click', () => toggleExpand());
+$('#btnFull').addEventListener('click', toggleFull);
+$('#screenVideo').addEventListener('dblclick', toggleFull);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('#screenView').classList.contains('max') && !document.fullscreenElement) toggleExpand(false);
+});
+
+/* ---------- expulsar (só o anfitrião) ---------- */
+function kickMember(id){
+  if (!isHost || id === myId) return;
+  const m = members.get(id); if (!m) return;
+  if (!confirm('Expulsar ' + m.name + ' da sala?\n\n(A pessoa poderá entrar de novo se tiver o nome da sala.)')) return;
+  const c = dataConns.get(id);
+  try{ if (c && c.open) c.send({t:'kick'}); }catch(e){}
+  m.inVoice = false;                         // evita a mensagem duplicada de "saiu da chamada"
+  hostRemovePeer(id);                        // tira da lista, derruba a chamada e avisa os outros
+  sysEverywhere(m.name + ' foi removido(a) da sala pelo anfitrião.');
+  setTimeout(() => { try{ c && c.close(); }catch(e){} }, 400);   // dá tempo da mensagem chegar
+}
+
+/* ---------- voltar ao início / trocar de sala ---------- */
+function leaveRoom(){
+  roomSession++;                                   // cancela reconexões pendentes da sala antiga
+  closeVolPop();
+  $('#settingsModal').classList.remove('show');
+  $('#extraModal').classList.remove('show');
+  leaveVoice();
+  const hc = hostConn; hostConn = null;
+  try{ hc && hc.close(); }catch(e){}
+  for (const c of dataConns.values()){ try{ c.close(); }catch(e){} }
+  try{ peer && peer.destroy(); }catch(e){}
+  peer = null; pendingMsgs = [];
+  dataConns.clear(); members.clear(); calls.clear(); remoteStreams.clear(); userVol.clear();
+  rosterList = []; isHost = false; myId = ''; roomId = ''; retries = 0;
+  activeScreenId = null; screenMinimized = false;
+  $('#messages').innerHTML = ''; $('#voiceList').innerHTML = ''; $('#onlineList').innerHTML = '';
+  $('#onlineCount').textContent = '0'; $('#myStatus').textContent = 'Conectando…';
+  updateScreenView();
+  $('#app').style.display = 'none';
+  $('#joinScreen').style.display = 'flex';
+  $('#roomInput').value = '';
+  $('#roomInput').focus();
+}
+$('#leaveRoomBtn').addEventListener('click', leaveRoom);
 
 /* ---------- chat de texto ---------- */
  $('#chatForm').addEventListener('submit', e => {
