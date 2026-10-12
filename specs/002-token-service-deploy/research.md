@@ -45,7 +45,10 @@ registry), `cargo tree -p xora-token`, Docker Hub tags, `livekit/deploy` generat
 - **Decision**: `Mutex<HashMap<IpAddr, Attempts>>` in shared state; `Attempts { window_start,
   failures, blocked_until }`. A refused invite increments `failures`; 10 within 60 s sets
   `blocked_until = now + 300 s`. Blocked sources get the same `403 {"error":"invalid invite"}` before
-  the code is even checked. Stale entries are dropped on each write (`retain`), bounding memory.
+  the code is even checked. The block check and the failure count happen under one lock
+  (`Limiter::check`), so parallel guesses cannot slip past the limit. IPv6 sources are keyed by their
+  /64 prefix (one client usually owns the whole /64). Stale entries are dropped with `retain` only
+  when the table reaches 1024 entries, so normal failures stay O(1).
 - **Source address**: rightmost value of `X-Forwarded-For` set by Caddy, trusted only when the TCP
   peer is a loopback address (Caddy on the same host); otherwise, or when the header is absent, the
   socket peer (`ConnectInfo`). This keeps the limit unspoofable even if `XORA_BIND_ADDR` is changed
@@ -55,6 +58,9 @@ registry), `cargo tree -p xora-token`, Docker Hub tags, `livekit/deploy` generat
 
 ## R6. Configuration
 
+- **Placeholders**: values starting with `change-me` (the `.env.example` defaults) are refused at
+  startup for the key, secret and invite, so a copied but unedited `.env` never runs with the public
+  example secret.
 - **Decision**: required env vars `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`,
   `XORA_INVITE_CODE`; optional `XORA_BIND_ADDR` (default `127.0.0.1:3000`). Missing or empty →
   `anyhow` error naming the variable and exit code 1 (FR-011). `LIVEKIT_API_SECRET` under 32

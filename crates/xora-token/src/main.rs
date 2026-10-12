@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     io::IsTerminal,
-    net::{IpAddr, SocketAddr},
+    net::{IpAddr, Ipv6Addr, SocketAddr},
     sync::{
         Arc, Mutex,
         atomic::{AtomicU64, Ordering},
@@ -28,6 +28,8 @@ const TOKEN_TTL: Duration = Duration::from_secs(6 * 3600);
 const MAX_FAILURES: u32 = 10;
 const FAILURE_WINDOW: Duration = Duration::from_secs(60);
 const BLOCK_DURATION: Duration = Duration::from_secs(300);
+const PRUNE_THRESHOLD: usize = 1024;
+const PLACEHOLDER_PREFIX: &str = "change-me";
 const INVALID_INVITE: &str = "invalid invite";
 
 struct Config {
@@ -50,6 +52,15 @@ impl Config {
         if config.api_secret.len() < 32 {
             bail!("LIVEKIT_API_SECRET must be at least 32 characters");
         }
+        for (name, value) in [
+            ("LIVEKIT_API_KEY", &config.api_key),
+            ("LIVEKIT_API_SECRET", &config.api_secret),
+            ("XORA_INVITE_CODE", &config.invite),
+        ] {
+            if value.starts_with(PLACEHOLDER_PREFIX) {
+                bail!("{name} still has the example value from .env.example");
+            }
+        }
         Ok(config)
     }
 }
@@ -67,27 +78,35 @@ struct Attempts {
     blocked_until: Option<Instant>,
 }
 
+enum Verdict {
+    Allowed,
+    Blocked,
+    Refused,
+}
+
 #[derive(Default)]
 struct Limiter(Mutex<HashMap<IpAddr, Attempts>>);
 
 impl Limiter {
-    fn is_blocked(&self, ip: IpAddr) -> bool {
+    fn check(&self, ip: IpAddr, invite_ok: bool) -> Verdict {
         let now = Instant::now();
-        self.0
-            .lock()
-            .unwrap()
+        let mut map = self.0.lock().unwrap();
+        if map
             .get(&ip)
             .and_then(|attempts| attempts.blocked_until)
             .is_some_and(|until| until > now)
-    }
-
-    fn record_failure(&self, ip: IpAddr) {
-        let now = Instant::now();
-        let mut map = self.0.lock().unwrap();
-        map.retain(|_, a| {
-            a.blocked_until.is_some_and(|until| until > now)
-                || now - a.window_start < FAILURE_WINDOW
-        });
+        {
+            return Verdict::Blocked;
+        }
+        if invite_ok {
+            return Verdict::Allowed;
+        }
+        if map.len() >= PRUNE_THRESHOLD {
+            map.retain(|_, a| {
+                a.blocked_until.is_some_and(|until| until > now)
+                    || now - a.window_start < FAILURE_WINDOW
+            });
+        }
         let attempts = map.entry(ip).or_insert(Attempts {
             window_start: now,
             failures: 0,
@@ -101,6 +120,7 @@ impl Limiter {
         if attempts.failures >= MAX_FAILURES {
             attempts.blocked_until = Some(now + BLOCK_DURATION);
         }
+        Verdict::Refused
     }
 }
 
@@ -138,16 +158,18 @@ fn error(status: StatusCode, message: &'static str) -> Response {
 
 fn source(headers: &HeaderMap, peer: SocketAddr) -> IpAddr {
     // Only the local Caddy is trusted to set X-Forwarded-For.
-    if peer.ip().is_loopback()
-        && let Some(ip) = headers
-            .get("x-forwarded-for")
-            .and_then(|value| value.to_str().ok())
-            .and_then(|value| value.rsplit(',').next())
-            .and_then(|value| value.trim().parse().ok())
-    {
-        return ip;
+    let ip = headers
+        .get("x-forwarded-for")
+        .filter(|_| peer.ip().is_loopback())
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.rsplit(',').next())
+        .and_then(|value| value.trim().parse().ok())
+        .unwrap_or(peer.ip());
+    match ip.to_canonical() {
+        // One IPv6 client usually owns a whole /64, so it gets one failure budget.
+        IpAddr::V6(v6) => IpAddr::V6(Ipv6Addr::from(u128::from(v6) & !u128::from(u64::MAX))),
+        v4 => v4,
     }
-    peer.ip()
 }
 
 fn clean(value: &str, max: usize) -> Option<&str> {
@@ -197,19 +219,21 @@ async fn token(
         return error(StatusCode::BAD_REQUEST, "bad request");
     };
     let ip = source(&headers, peer);
-    if state.limiter.is_blocked(ip) {
-        warn!(%ip, "request from blocked source");
-        return error(StatusCode::FORBIDDEN, INVALID_INVITE);
-    }
-    if !bool::from(
-        request
-            .invite
-            .as_bytes()
-            .ct_eq(state.config.invite.as_bytes()),
-    ) {
-        state.limiter.record_failure(ip);
-        warn!(%ip, "invalid invite");
-        return error(StatusCode::FORBIDDEN, INVALID_INVITE);
+    let invite_ok: bool = request
+        .invite
+        .as_bytes()
+        .ct_eq(state.config.invite.as_bytes())
+        .into();
+    match state.limiter.check(ip, invite_ok) {
+        Verdict::Allowed => {}
+        Verdict::Blocked => {
+            warn!(%ip, "request from blocked source");
+            return error(StatusCode::FORBIDDEN, INVALID_INVITE);
+        }
+        Verdict::Refused => {
+            warn!(%ip, "invalid invite");
+            return error(StatusCode::FORBIDDEN, INVALID_INVITE);
+        }
     }
     let Some(nickname) = clean(&request.nickname, 32) else {
         return error(

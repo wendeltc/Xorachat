@@ -4,3 +4,6 @@ specs/
 .git/
 deploy/.env
 deploy/caddy_data/
+docs/
+deploy/
+*.md

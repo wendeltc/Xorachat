@@ -41,7 +41,8 @@ checked before field validation so a wrong code never learns which field would h
 | `blocked_until` | Option<Instant> | set to now + 300 s when `failures` reaches 10 |
 
 Transitions: `failures` resets when the window expires; any request while `blocked_until > now`
-is refused; entries with an expired window and no active block are removed on the next write.
+is refused; entries with an expired window and no active block are removed when the table reaches
+1024 entries. The key is the IPv4 address, or the /64 prefix for IPv6.
 
 ## Config (environment)
 
