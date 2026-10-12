@@ -6,7 +6,8 @@ talks to a self-hosted LiveKit SFU. The full project document (in Portuguese) is
 [docs/PROJETO.md](docs/PROJETO.md).
 
 Status: early development, version 0.1.0. The previous Electron + PeerJS app lives in
-[legacy/](legacy/) as a behavior reference.
+[legacy/](legacy/) as a behavior reference. The web version is still served by GitHub Pages at
+<https://wendeltc.github.io/Xorachat/>; the root `index.html` redirects there to `legacy/`.
 
 ## Repository layout
 
