@@ -1,0 +1,62 @@
+{
+	auto_https disable_redirects
+	layer4 {
+		:443 {
+			@turn tls sni {$XORA_TURN_DOMAIN}
+			route @turn {
+				tls
+				proxy localhost:5349
+			}
+			@main tls sni {$XORA_DOMAIN}
+			route @main {
+				tls {
+					connection_policy {
+						alpn http/1.1
+					}
+				}
+				# PROXY protocol carries the client address to the internal HTTP server.
+				proxy {
+					proxy_protocol v2
+					upstream 127.0.0.1:8080
+				}
+			}
+		}
+	}
+	servers 127.0.0.1:8080 {
+		listener_wrappers {
+			proxy_protocol {
+				allow 127.0.0.1/32
+			}
+		}
+	}
+}
+
+http://:8080 {
+	bind 127.0.0.1
+	handle /token {
+		reverse_proxy 127.0.0.1:3000
+	}
+	handle /health {
+		reverse_proxy 127.0.0.1:3000
+	}
+	handle {
+		reverse_proxy localhost:7880
+	}
+}
+
+# Never reached from outside: this site only makes Caddy obtain and renew certificates for both
+# domains, which the layer4 TLS handlers above then use.
+https://{$XORA_DOMAIN}:8443, https://{$XORA_TURN_DOMAIN}:8443 {
+	bind 127.0.0.1
+	tls {
+		issuer acme {
+			disable_tlsalpn_challenge
+		}
+	}
+	respond 404
+}
+
+# Public port 80 answers the ACME HTTP challenge and redirects everything else.
+http:// {
+	redir https://{host}{uri}
+}

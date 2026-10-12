@@ -1,0 +1,34 @@
+services:
+  caddy:
+    image: livekit/caddyl4:v2.11.3
+    command: run --config /etc/caddy/Caddyfile --adapter caddyfile
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      XORA_DOMAIN: ${XORA_DOMAIN}
+      XORA_TURN_DOMAIN: ${XORA_TURN_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy_data:/data
+
+  livekit:
+    image: livekit/livekit-server:v1.13.9
+    command: --config /etc/livekit.yaml
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+      LIVEKIT_TURN_DOMAIN: ${XORA_TURN_DOMAIN}
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+
+  xora-token:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    init: true
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+    environment:
+      LIVEKIT_URL: wss://${XORA_DOMAIN}

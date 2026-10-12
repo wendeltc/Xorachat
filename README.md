@@ -76,6 +76,11 @@ cargo run -p xora-token
 
 Each binary currently prints its name and version and exits.
 
+## Server
+
+The token service and the media server run on one VM with Docker Compose. See
+[deploy/README.md](deploy/README.md).
+
 ## License
 
 [MIT](LICENSE)

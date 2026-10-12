@@ -6180,6 +6180,8 @@ dependencies = [
  "anyhow",
  "axum",
  "livekit-api",
+ "serde",
+ "subtle",
  "tokio",
  "tracing",
  "tracing-subscriber",
