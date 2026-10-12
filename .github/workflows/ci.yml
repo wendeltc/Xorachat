@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --workspace --locked
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  linux:
+    runs-on: ubuntu-latest
+    container: debian:13
+    steps:
+      - name: Install system packages
+        run: |
+          apt-get update
+          apt-get install -y build-essential pkg-config curl xz-utils ca-certificates git \
+            libasound2-dev libssl-dev libx11-dev libgl1-mesa-dev libxext-dev libdrm-dev libgbm-dev \
+            libxfixes-dev libxdamage-dev libxrandr-dev libxcomposite-dev libglib2.0-dev \
+            libpipewire-0.3-dev
+      # webrtc-sys needs clang 21+; Debian 13 ships clang 19.
+      - name: Install LLVM 21
+        run: |
+          mkdir -p /opt/llvm
+          curl -fsSL https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/LLVM-21.1.8-Linux-X64.tar.xz \
+            | tar -xJ --strip-components=1 -C /opt/llvm
+          echo "CC=/opt/llvm/bin/clang" >> "$GITHUB_ENV"
+          echo "CXX=/opt/llvm/bin/clang++" >> "$GITHUB_ENV"
+      - name: Install rustup
+        run: |
+          curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --workspace --locked
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings

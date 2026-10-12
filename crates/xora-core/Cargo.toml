@@ -1,0 +1,14 @@
+[package]
+name = "xora-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+xora-media.workspace = true
+livekit.workspace = true
+tokio.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+livekit = { workspace = true, features = ["glib-main-loop"] }

@@ -1,16 +1,10 @@
 <!--
 Sync Impact Report
-- Version change: template → 1.0.0
-- Principles defined: I. English Only; II. Minimal Comments; III. No Automated Tests During the MVP;
-  IV. One Feature per Pull Request; V. Versioning; VI. Lightweight First;
-  VII. Simplicity and Few Dependencies; VIII. Layered Architecture; IX. Security; X. Target Platforms
-- Added sections: Technology Constraints, Development Workflow, Governance
+- Version change: 1.0.0 → 1.0.1 (PATCH)
+- Modified: preamble now points to docs/PROJETO.md (moved by feature 001)
+- Added sections: none
 - Removed sections: none
-- Templates:
-  - .specify/templates/tasks-template.md ✅ updated (test tasks forbidden during MVP)
-  - .specify/templates/plan-template.md ✅ no change needed (Constitution Check reads this file)
-  - .specify/templates/spec-template.md ✅ no change needed ("Independent Test" = manual validation)
-  - .claude/skills/speckit-*/SKILL.md ✅ no outdated references
+- Templates: no changes needed
 - Follow-up TODOs: none
 -->
 
@@ -18,8 +12,7 @@ Sync Impact Report
 
 Xorachat is a lightweight native desktop app written in Rust for voice chat, text chat and screen
 sharing with system audio among a small group of friends, backed by a self-hosted LiveKit SFU.
-`PROJETO.md` (repository root, moved to `docs/PROJETO.md` by feature 001) is the source of truth
-for scope, stack, architecture and phases.
+`docs/PROJETO.md` is the source of truth for scope, stack, architecture and phases.
 
 ## Core Principles
 
@@ -121,4 +114,4 @@ Amendments are made through `/speckit-constitution` in their own PR and MUST upd
 templates. The constitution version follows SemVer: MAJOR for removed or redefined principles,
 MINOR for new principles or materially expanded guidance, PATCH for wording fixes.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-11 | **Last Amended**: 2026-10-11
+**Version**: 1.0.1 | **Ratified**: 2026-10-11 | **Last Amended**: 2026-10-11
