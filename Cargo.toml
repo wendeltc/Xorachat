@@ -1,0 +1,22 @@
+[workspace]
+members = ["crates/*"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/wendeltc/Xorachat"
+
+[workspace.dependencies]
+xora-media = { path = "crates/xora-media" }
+xora-core = { path = "crates/xora-core" }
+livekit = "0.9.4"
+livekit-api = { version = "0.8.2", default-features = false, features = ["access-token"] }
+eframe = "0.36.2"
+axum = "0.8.9"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
+thiserror = "2"
