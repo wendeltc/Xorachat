@@ -26,9 +26,9 @@ All Rust code lives in `crates/xora-token/src/main.rs` unless it grows past one 
 
 ## Phase 1: Setup
 
-- [ ] T001 Commit the spec artifacts in `specs/002-token-service-deploy/` and `.specify/feature.json`: `docs: add spec, plan and tasks for token service and deployment`
-- [ ] T002 Add `serde = { version = "1", features = ["derive"] }` and `subtle = "2.6"` to `[workspace.dependencies]` in `Cargo.toml`, and `serde.workspace = true`, `subtle.workspace = true` to `crates/xora-token/Cargo.toml`; run `cargo update -p subtle --precise 2.6.1` only if the lockfile picks a different version
-- [ ] T003 [P] Append `deploy/.env` and `deploy/caddy_data/` to `.gitignore`; create `.dockerignore` at the repository root with `target/`, `legacy/`, `specs/`, `.git/`, `deploy/.env`, `deploy/caddy_data/`
+- [X] T001 Commit the spec artifacts in `specs/002-token-service-deploy/` and `.specify/feature.json`: `docs: add spec, plan and tasks for token service and deployment`
+- [X] T002 Add `serde = { version = "1", features = ["derive"] }` and `subtle = "2.6"` to `[workspace.dependencies]` in `Cargo.toml`, and `serde.workspace = true`, `subtle.workspace = true` to `crates/xora-token/Cargo.toml`; run `cargo update -p subtle --precise 2.6.1` only if the lockfile picks a different version
+- [X] T003 [P] Append `deploy/.env` and `deploy/caddy_data/` to `.gitignore`; create `.dockerignore` at the repository root with `target/`, `legacy/`, `specs/`, `.git/`, `deploy/.env`, `deploy/caddy_data/`
 
 ---
 
@@ -36,8 +36,8 @@ All Rust code lives in `crates/xora-token/src/main.rs` unless it grows past one 
 
 **Purpose**: Config loading, logging and the HTTP server every story uses.
 
-- [ ] T004 In `crates/xora-token/src/main.rs` add `struct Config { livekit_url, api_key, api_secret, invite, bind_addr }` loaded by a `fn required(name) -> anyhow::Result<String>` that fails with `missing environment variable <NAME>` for absent or empty values; `XORA_BIND_ADDR` defaults to `127.0.0.1:3000`; `LIVEKIT_API_SECRET` shorter than 32 characters fails with `LIVEKIT_API_SECRET must be at least 32 characters` because livekit-server refuses such secrets (research R6, FR-010, FR-011). Never log any field except `bind_addr`
-- [ ] T005 In `crates/xora-token/src/main.rs` build `axum::Router` with shared state `Arc<AppState { config, limiter }>`, route `GET /health` returning `Json({"status":"ok"})` (FR-013), bind `tokio::net::TcpListener` on `bind_addr` and serve with `into_make_service_with_connect_info::<SocketAddr>()`; log `listening on <addr>` at info. Remove the old version-print-and-exit behavior
+- [X] T004 In `crates/xora-token/src/main.rs` add `struct Config { livekit_url, api_key, api_secret, invite, bind_addr }` loaded by a `fn required(name) -> anyhow::Result<String>` that fails with `missing environment variable <NAME>` for absent or empty values; `XORA_BIND_ADDR` defaults to `127.0.0.1:3000`; `LIVEKIT_API_SECRET` shorter than 32 characters fails with `LIVEKIT_API_SECRET must be at least 32 characters` because livekit-server refuses such secrets (research R6, FR-010, FR-011). Never log any field except `bind_addr`
+- [X] T005 In `crates/xora-token/src/main.rs` build `axum::Router` with shared state `Arc<AppState { config, limiter }>`, route `GET /health` returning `Json({"status":"ok"})` (FR-013), bind `tokio::net::TcpListener` on `bind_addr` and serve with `into_make_service_with_connect_info::<SocketAddr>()`; log `listening on <addr>` at info. Remove the old version-print-and-exit behavior
 
 **Checkpoint**: `cargo run -p xora-token` with the four env vars set answers `/health`; commit `feat(token): add config loading and health endpoint`.
 
@@ -49,13 +49,13 @@ All Rust code lives in `crates/xora-token/src/main.rs` unless it grows past one 
 
 **Independent Test**: quickstart.md sections 1–3.
 
-- [ ] T006 [US1] In `crates/xora-token/src/main.rs` add `#[derive(Deserialize)] struct JoinRequest { nickname: String, room: String, invite: String }`, `#[derive(Serialize)] struct JoinResponse { url: String, token: String }` and a helper `fn error(status: StatusCode, msg: &str) -> Response` producing `{"error": msg}`
-- [ ] T007 [US1] In `crates/xora-token/src/main.rs` add `fn clean(value: &str, max: usize) -> Option<&str>`: trims, returns `None` if empty, longer than `max` chars (`chars().count()`) or containing `char::is_control`; nickname max 32, room max 64 (FR-008, data-model.md)
-- [ ] T008 [US1] In `crates/xora-token/src/main.rs` add `fn new_identity() -> String` returning `format!("{:x}-{:x}", unix_nanos, COUNTER.fetch_add(1, Relaxed))` with a `static COUNTER: AtomicU64` (research R2, FR-005)
-- [ ] T009 [US1] In `crates/xora-token/src/main.rs` add `fn sign(config: &Config, room: &str, nickname: &str) -> anyhow::Result<String>` using `livekit_api::access_token::{AccessToken, VideoGrants}` exactly as research R1 (room_join, room, can_publish, can_subscribe, can_publish_data set; TTL 6 h; identity from T008) (FR-002–FR-005)
-- [ ] T010 [US1] In `crates/xora-token/src/main.rs` add the attempt limiter from research R5: `struct Limiter(Mutex<HashMap<IpAddr, Attempts>>)` with `fn is_blocked(&self, ip) -> bool` and `fn record_failure(&self, ip)` (10 failures in 60 s → blocked 300 s; prune stale entries with `retain` on every write), plus `fn source(headers: &HeaderMap, peer: SocketAddr) -> IpAddr` that reads the rightmost `X-Forwarded-For` value only when `peer.ip().is_loopback()` (one-line comment: only the local Caddy is trusted to set it) and otherwise, or when the header is missing or unparsable, returns `peer.ip()` (FR-009, research R5)
-- [ ] T011 [US1] In `crates/xora-token/src/main.rs` add the `POST /token` handler taking `State`, `ConnectInfo<SocketAddr>`, `HeaderMap` and `Result<Json<JoinRequest>, JsonRejection>`; order: rejection → 400 `bad request`; blocked → 403 `invalid invite`; `invite.as_bytes().ct_eq(config.invite.as_bytes())` false → `record_failure`, `warn!` with source only, 403 `invalid invite`; `clean` nickname → 422 `nickname must be 1-32 characters`; `clean` room → 422 `room must be 1-64 characters`; `sign` error → 500 `internal error` (log the error, not the inputs); success → 200 `JoinResponse { url: config.livekit_url, token }`. Add `.layer(DefaultBodyLimit::max(1024))` to the router (FR-006, FR-007, FR-012)
-- [ ] T012 [US1] Run `cargo clippy -p xora-token --all-targets --locked -- -D warnings` and follow quickstart.md sections 1–3 (health, valid pass with decoded claims, wrong code, empty nickname, malformed body, 10-failure block, missing env var, no secrets in logs); fix any deviation in `crates/xora-token/src/main.rs`
+- [X] T006 [US1] In `crates/xora-token/src/main.rs` add `#[derive(Deserialize)] struct JoinRequest { nickname: String, room: String, invite: String }`, `#[derive(Serialize)] struct JoinResponse { url: String, token: String }` and a helper `fn error(status: StatusCode, msg: &str) -> Response` producing `{"error": msg}`
+- [X] T007 [US1] In `crates/xora-token/src/main.rs` add `fn clean(value: &str, max: usize) -> Option<&str>`: trims, returns `None` if empty, longer than `max` chars (`chars().count()`) or containing `char::is_control`; nickname max 32, room max 64 (FR-008, data-model.md)
+- [X] T008 [US1] In `crates/xora-token/src/main.rs` add `fn new_identity() -> String` returning `format!("{:x}-{:x}", unix_nanos, COUNTER.fetch_add(1, Relaxed))` with a `static COUNTER: AtomicU64` (research R2, FR-005)
+- [X] T009 [US1] In `crates/xora-token/src/main.rs` add `fn sign(config: &Config, room: &str, nickname: &str) -> anyhow::Result<String>` using `livekit_api::access_token::{AccessToken, VideoGrants}` exactly as research R1 (room_join, room, can_publish, can_subscribe, can_publish_data set; TTL 6 h; identity from T008) (FR-002–FR-005)
+- [X] T010 [US1] In `crates/xora-token/src/main.rs` add the attempt limiter from research R5: `struct Limiter(Mutex<HashMap<IpAddr, Attempts>>)` with `fn is_blocked(&self, ip) -> bool` and `fn record_failure(&self, ip)` (10 failures in 60 s → blocked 300 s; prune stale entries with `retain` on every write), plus `fn source(headers: &HeaderMap, peer: SocketAddr) -> IpAddr` that reads the rightmost `X-Forwarded-For` value only when `peer.ip().is_loopback()` (one-line comment: only the local Caddy is trusted to set it) and otherwise, or when the header is missing or unparsable, returns `peer.ip()` (FR-009, research R5)
+- [X] T011 [US1] In `crates/xora-token/src/main.rs` add the `POST /token` handler taking `State`, `ConnectInfo<SocketAddr>`, `HeaderMap` and `Result<Json<JoinRequest>, JsonRejection>`; order: rejection → 400 `bad request`; blocked → 403 `invalid invite`; `invite.as_bytes().ct_eq(config.invite.as_bytes())` false → `record_failure`, `warn!` with source only, 403 `invalid invite`; `clean` nickname → 422 `nickname must be 1-32 characters`; `clean` room → 422 `room must be 1-64 characters`; `sign` error → 500 `internal error` (log the error, not the inputs); success → 200 `JoinResponse { url: config.livekit_url, token }`. Add `.layer(DefaultBodyLimit::max(1024))` to the router (FR-006, FR-007, FR-012)
+- [X] T012 [US1] Run `cargo clippy -p xora-token --all-targets --locked -- -D warnings` and follow quickstart.md sections 1–3 (health, valid pass with decoded claims, wrong code, empty nickname, malformed body, 10-failure block, missing env var, no secrets in logs); fix any deviation in `crates/xora-token/src/main.rs`
 
 **Checkpoint**: US1 complete; commit `feat(token): issue livekit passes for valid invites`.
 
@@ -67,7 +67,7 @@ All Rust code lives in `crates/xora-token/src/main.rs` unless it grows past one 
 
 **Independent Test**: quickstart.md section 4 (local) and section 5 rotation bullet (deployed).
 
-- [ ] T013 [US2] Follow quickstart.md section 4 locally (restart with a new `XORA_INVITE_CODE`; old code 403, new code 200). No code change expected: config is read once at startup (T004)
+- [X] T013 [US2] Follow quickstart.md section 4 locally (restart with a new `XORA_INVITE_CODE`; old code 403, new code 200). No code change expected: config is read once at startup (T004)
 
 ---
 
