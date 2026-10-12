@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    io::IsTerminal,
     net::{IpAddr, SocketAddr},
     sync::{
         Arc, Mutex,
@@ -241,6 +242,7 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
+        .with_ansi(std::io::stdout().is_terminal())
         .init();
     let config = Config::from_env()?;
     let listener = TcpListener::bind(&config.bind_addr)

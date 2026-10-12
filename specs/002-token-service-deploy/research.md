@@ -85,11 +85,18 @@ registry), `cargo tree -p xora-token`, Docker Hub tags, `livekit/deploy` generat
 - **Why the extra internal HTTP hop**: the generator proxies the main domain straight to LiveKit,
   which leaves no place for `/token`. One internal HTTP server keeps two domains (clarification
   2026-10-12) instead of a third one. PROXY protocol keeps the real client address for R5.
-- **Config format**: Caddyfile with `{$XORA_DOMAIN}` / `{$XORA_TURN_DOMAIN}` env substitution if the
-  layer4 Caddyfile syntax in caddyl4 2.11.3 supports TLS-handler cert automation; otherwise
-  `deploy/caddy.yaml` (YAML adapter, like the generator) with the domains filled from `.env`.
-  **Verify at implementation** with `docker run --rm -v ./deploy:/d livekit/caddyl4:v2.11.3 adapt
-  --config /d/Caddyfile` before choosing.
+- **Config format (verified 2026-10-12 with `livekit/caddyl4:v2.11.3`)**: `deploy/Caddyfile` with
+  `{$XORA_DOMAIN}` / `{$XORA_TURN_DOMAIN}`. Three findings from running it:
+  1. Layer4 TLS handlers do not trigger certificate automation by themselves. A site
+     `https://<both domains>:8443` bound to `127.0.0.1` makes Caddy obtain and renew both
+     certificates, which the layer4 handlers then use.
+  2. That site's automatic HTTP listener would also bind to `127.0.0.1`, so HTTP-01 from outside
+     fails. An explicit `http://` site on public port 80 serves the ACME challenge and redirects;
+     `auto_https disable_redirects` stops the automatic redirect to `:8443` from winning.
+  3. `disable_tlsalpn_challenge`, since port 443 belongs to layer4.
+  Validated locally with the full stack and `tls internal`: `/health`, `/token`, LiveKit `/` and
+  `/rtc/validate` with an issued token over 443, TURN SNI handshake, and the real client address
+  reaching xora-token through PROXY protocol (a forged `X-Forwarded-For` is discarded by Caddy).
 
 ## R9. Building xora-token for arm64 and amd64
 
